@@ -1,0 +1,246 @@
+#!/usr/bin/env python3
+import tomli
+import json
+import sqlite3
+import logging
+import re
+from Cryptodome.Cipher import AES
+from time import time
+from bs4 import BeautifulSoup
+from datetime import datetime, timezone, timedelta
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from os import environ, path, mkdir, listdir, system
+from sys import argv, exit
+from urllib.parse import urlencode
+from urllib.request import urlopen, Request
+__VERSION__ = "0.1"
+
+class Codeforces:
+    def __init__(self):
+        basedir = environ["HOME"] + "/.cf-cli"
+        config_path = basedir + "/config.toml"
+        if path.isfile(config_path):
+            self.conf = tomli.load(open(config_path, "rb"))
+        else:
+            self.conf = {'solved_path': '~/codeforces', 'lang_ext': ['cpp'], 'cache': '~/.cf-cli/cache.db', 'title_width': 40, 'max_page': 3, 'open_in_browser': True, 'browser': 'google-chrome', 'problem_range': {'1': [], '2': ['a', 'b'], '3': ['a', 'b', 'c', 'd'], '4': [], 'G': ['a', 'b']}}
+        if not path.isdir(basedir):
+            mkdir(basedir)
+        if not path.isdir(path.expanduser(self.conf['solved_path'])):
+            mkdir(path.expanduser(self.conf['solved_path']))
+        self.domain = 'https://codeforces.com'
+        self.headers = { 'Accept': '*/*' }
+        cache_path = path.expanduser(self.conf['cache'])
+        if not path.isfile(cache_path):
+            self.db = sqlite3.connect(cache_path)
+            cur = self.db.cursor()
+            cur.execute('''CREATE TABLE codeforces (cid integer primary key, title varchar, authors varchar, start varchar, length varchar, participants integer, upcoming integer);''')
+            cur.execute('''CREATE TABLE modifications (site TEXT NOT NULL PRIMARY KEY ON CONFLICT REPLACE, last_modified TIMESTAMP DEFAULT current_timestamp);''')
+            cur.execute('''INSERT INTO modifications (site) VALUES ('codeforces');''')
+            cur.execute('''CREATE TRIGGER update_time_codeforces AFTER UPDATE ON codeforces BEGIN UPDATE modifications SET last_modified = current_timestamp WHERE site = 'codeforces'; END;''')
+            cur.execute('''CREATE TRIGGER delete_time_codeforces AFTER DELETE ON codeforces BEGIN UPDATE modifications SET last_modified = current_timestamp WHERE site = 'codeforces'; END;''')
+            cur.execute('''CREATE TRIGGER insert_time_codeforces AFTER INSERT ON codeforces BEGIN UPDATE modifications SET last_modified = current_timestamp WHERE site = 'codeforces'; END;''')
+            self.db.commit()
+        else:
+            self.db = sqlite3.connect(cache_path)
+ 
+    def http_get(self, path):
+        req = Request(self.domain + path, headers=self.headers);
+        result = None
+        with urlopen(req) as response:
+            result = response.read()
+        return result.decode('utf-8')
+
+    def http_post(self, path, data):
+        Request(self.domain + path, headers=self.headers, data=data);
+        print(path)
+
+    def get_submission(self, args):
+        # TODO
+        print("get submission", args.cid, args.level)
+
+    def search_editorial(self, args):
+        # TODO
+        print("search editorial", args.cid)
+
+    def info_contest(self, args):
+        # TODO
+        print("Show contest information", args.cid)
+
+    def open_url(self, args):
+        if not args.cid: return
+        problems_url = "{}/contest/{}/problems".format(self.domain, args.cid)
+        contest_url = "{}/contest/{}".format(self.domain, args.cid)
+        print("[+] Open", contest_url)
+        print("[+] Open", problems_url)
+        if 'open_in_browser' in self.conf and self.conf['open_in_browser'] == True:
+            system('''{} "{}" "{}"'''.format(self.conf['browser'], contest_url, problems_url))
+
+    def parse_list(self, raw_contests, upcoming=0, write_db=True):
+        cur = self.db.cursor()
+        contests = {}
+        tz_msk = timezone(timedelta(hours=3))
+        for c in raw_contests.find_all("tr", {"data-contestid": True}):
+            cid = c['data-contestid']
+            td = c.find_all("td")
+#           urls = [h.extract()['href'] for h in td[0].find_all('a', href=True)]
+            title = td[0].text.lstrip().splitlines()[0]
+            authors = [{'profile':a['href'],'class':a['class'][1],'title':a['title'],'name':a.text} for a in td[1].find_all('a', href=True)]
+            start = td[2].find('span').text
+            start = datetime.strptime(start, "%b/%d/%Y %H:%M").replace(tzinfo=tz_msk)
+            length = td[3].text.strip()
+            if upcoming:
+                participants = 0
+            else:
+                participants = td[5].text.strip().lstrip('x')
+
+            contests[cid] = {'title':title, 'authors':authors, 'start':start, 'length':length, 'participants':participants, 'upcoming':0}
+            if write_db:
+                cur.execute('INSERT or REPLACE INTO codeforces (cid, title, authors, start, length, participants, upcoming) VALUES (?, ?, ?, ?, ?, ?, ?)', (cid, title, json.dumps(authors), start, length, participants, upcoming))
+        if write_db: self.db.commit()
+        return contests
+
+    def parse_div(self, title):
+        r = []
+        if 'Div.' in title:
+            r += ['D']
+            for i in range(1, 5):
+                if re.compile('Div\. ?' + str(i)).search(title): r += [str(i)]
+        elif 'Global' in title:
+            r += ['G']
+        return r
+
+    def solved_problems(self):
+        # TODO support directory hierachy. ex) 1600/a.cpp
+        ret = {}
+
+        for fn in listdir(path.expanduser(self.conf['solved_path'])):
+            t = path.splitext(fn)
+            name = t[0]
+            ext = t[1].lstrip('.')
+            p = re.compile(r'^([0-9]+)([a-zA-Z])$').search(name)
+            if ext and ext in self.conf['lang_ext'] and p and len(p.groups()) == 2:
+                cid = int(p.group(1))
+                level = p.group(2)
+                if not cid in ret:
+                    ret[cid] = [level]
+                else:
+                    ret[cid].append(level)
+        return ret
+
+    def show_contests(self, contests, check_solved=False, upcoming=False):
+        solved_width = 0
+        solved_contests = 0
+        if check_solved:
+            solved_list = self.solved_problems()
+            solved_width = max(map(len, self.conf['problem_range'].values()))+1
+        for c in contests:
+            cid = c[0]
+            title = c[1]
+            div = ''.join(self.parse_div(title))
+            start = datetime.strptime(c[3], '%Y-%m-%d %H:%M:%S%z').astimezone(tz=None)
+            length = c[4]
+            if upcoming:
+                participants = ''
+            else:
+                participants = ' x' + str(c[5])
+            problems = ''
+            solved_cnt = 0
+            if check_solved and len(div) > 0:
+                for l in self.conf['problem_range'][div[-1]]:
+                    if cid in solved_list and l in solved_list[cid]:
+                        solved_cnt += 1
+                        problems += ' '
+                    else:
+                        problems += l.upper()
+                if solved_cnt > 0 and solved_cnt == len(self.conf['problem_range'][div[-1]]):
+                    solved_contests += 1
+            countdown = ''
+            if upcoming:
+                d = start - datetime.now().astimezone(tz=None)
+                h = d.seconds // 3600
+                m = d.seconds // 60 % 60
+                countdown = ' {}:{:02d}:{:02d}'.format(d.days, h, m)
+
+            if not check_solved or problems.strip():
+                print("{:04d} {:<3} {:<{solved_width}}{:<{width}} {} ({}){}{}".format(cid, div, problems, title[:self.conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, countdown, participants, width=self.conf['title_width'], solved_width=solved_width))
+        if check_solved:
+            print("[+] Solved {:d} contests".format(solved_contests))
+
+    def list_contest(self, args, upcoming=False):
+        cur = self.db.cursor()
+        update = False;
+        last_modified = int(cur.execute('''SELECT strftime('%s', last_modified) FROM modifications WHERE site = 'codeforces';''').fetchone()[0])
+        now = int(time())
+        row_count = cur.execute('''SELECT COUNT(*) FROM codeforces''').fetchone()[0]
+        if now - last_modified > 24 * 3600 or row_count == 0:
+            update = True
+
+        if args.force or update:
+            print('[+] Update contests list', end='', flush=True)
+            for page in range(1, self.conf['max_page']+1):
+                print('.', end='', flush=True)
+                page_path = '/contests/page/{:d}'.format(page)
+                html = self.http_get(page_path)
+                bs = BeautifulSoup(html, 'html.parser')
+                table = bs.find_all("div", {"class": "datatable"})
+                self.parse_list(table[0], upcoming=1, write_db=True)
+                self.parse_list(table[1], write_db=True)
+            print()
+
+        if upcoming:
+            print("[+] Current or upcoming contests")
+            upcoming = cur.execute('''SELECT cid, title, authors, start, length, participants FROM codeforces WHERE upcoming = 1 ORDER BY start;''')
+            self.show_contests(upcoming, upcoming=True)
+        else:
+            print("[+] Past contests")
+            contests = cur.execute('''SELECT cid, title, authors, start, length, participants FROM codeforces WHERE upcoming = 0 ORDER BY start;''')
+            self.show_contests(contests, check_solved=not args.all)
+
+    def list_upcoming(self, args):
+        self.list_contest(args, upcoming=True)
+
+def main():
+    parser = ArgumentParser(prog='Codeforces CLI', description="Codeforce CLI tool")
+    parser.add_argument('--version', help="version", action='version', version='%(prog)s ' + __VERSION__)
+    subparsers = parser.add_subparsers(title='commands', dest='command')
+    cf = Codeforces()
+    commands = {}
+
+    _list = subparsers.add_parser('list', aliases=['l'], help="List contests", allow_abbrev=True)
+    _list.add_argument('-f', '--force',  action='store_true', help="Update cache")
+    _list.add_argument('-a', '--all',  action='store_true', help="Show all contests")
+    _list.set_defaults(func=cf.list_contest)
+
+    _list = subparsers.add_parser('upcoming', aliases=['u'], help="List upcoming contests", allow_abbrev=True)
+    _list.add_argument('-f', '--force',  action='store_true', help="Update cache")
+    _list.set_defaults(func=cf.list_upcoming)
+
+#    _submission = subparsers.add_parser('submission', aliases=['a'], help="Get problem's submissions", allow_abbrev=True)
+#    _submission.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
+#    _submission.add_argument('level', metavar='contestID', nargs='?', action='store', type=str)
+#    _submission.set_defaults(func=cf.get_submission)
+
+#    _info = subparsers.add_parser('info', aliases=['i'], help="Show current problem's info")
+#    _info.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
+#    _info.set_defaults(func=cf.info_contest)
+
+#    _editorial = subparsers.add_parser('editorial', aliases=['e'], help="Search editorial links")
+#    _editorial.add_argument('cid', metavar='contestID', nargs='+', action='store', type=int)
+#    _editorial.set_defaults(func=cf.search_editorial)
+
+    _open = subparsers.add_parser('open', aliases=['o'], help="Open codeforces URL")
+    _open.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
+    _open.add_argument('level', metavar='contestID', nargs='?', action='store', type=str)
+    _open.set_defaults(func=cf.open_url)
+
+    args = parser.parse_args()
+    if 'func' in args:
+        args.func(args)
+    else:
+        parser.print_help()
+
+if __name__ == '__main__':
+    try:
+        main()
+    except Exception as e:
+        logging.error("Exception", e)

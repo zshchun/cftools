@@ -1,0 +1,14 @@
+solved_path = "~/codeforces"
+lang_ext = ['cpp']
+cache = "~/.cf-cli/cache.db"
+title_width = 40
+max_page = 3
+open_in_browser = true
+browser = "google-chrome"
+
+[problem_range]
+1 = []
+2 = ['a','b']
+3 = ['a','b','c','d']
+4 = []
+G = ['a','b']
