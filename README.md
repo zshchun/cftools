@@ -30,7 +30,7 @@ $ cf-cli upcoming
 ```
 
 # TODO
-- [ ] Search editorial link
+- [x] Search editorial link
 - [ ] Submit submission
 - [ ] Current contest countdown
 - [ ] Support user-agent

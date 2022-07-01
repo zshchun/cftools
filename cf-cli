@@ -9,8 +9,9 @@ from time import time
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from os import environ, path, mkdir, listdir, system
+from os import environ, path, mkdir, listdir, system, getcwd, sep
 from sys import argv, exit
+from operator import itemgetter
 from urllib.parse import urlencode
 from urllib.request import urlopen, Request
 __VERSION__ = "0.1"
@@ -28,7 +29,7 @@ class Codeforces:
         if not path.isdir(path.expanduser(self.conf['solved_path'])):
             mkdir(path.expanduser(self.conf['solved_path']))
         self.domain = 'https://codeforces.com'
-        self.headers = { 'Accept': '*/*' }
+        self.headers = { 'Accept': '*/*', 'content-type': 'application/x-www-form-urlencoded', }
         cache_path = path.expanduser(self.conf['cache'])
         if not path.isfile(cache_path):
             self.db = sqlite3.connect(cache_path)
@@ -51,20 +52,78 @@ class Codeforces:
         return result.decode('utf-8')
 
     def http_post(self, path, data):
-        Request(self.domain + path, headers=self.headers, data=data);
-        print(path)
+        req = Request(self.domain + path, headers=self.headers, data=urlencode(data).encode())
+        result = None
+        with urlopen(req) as response:
+            result = response.read()
+        return result.decode('utf-8')
 
     def get_submission(self, args):
         # TODO
         print("get submission", args.cid, args.level)
 
     def search_editorial(self, args):
-        # TODO
-        print("search editorial", args.cid)
+        cid = args.cid
+        if not cid:
+            cid, _ = self.get_cwd_info()
+        db = self.find_by_cid(cid)
+        if not cid or not db:
+            print("[!] Invalid ContestID")
+            return
+        title = re.sub(r' ?\([^)]*\)', '', db[0])
+        print("[+] Searching for", title, "editorial")
+        res = self.http_post('/search', {'query': title + ' editorial' })
+        bs = BeautifulSoup(res, 'html.parser')
+        topics = bs.find_all("div", {"class": "topic"})
+        finding_words = [t.lower() for t in title.split()] + ['editorial']
+        posts = []
+        for t in topics:
+            div = t.find("div", {"class": "title"})
+            page_title = div.a.text.strip()
+            if page_title.lower().find('editorial') == -1: continue
 
-    def info_contest(self, args):
-        # TODO
-        print("Show contest information", args.cid)
+            page_url = self.domain + div.find('a', href=True)['href']
+            words = [t.lower() for t in page_title.split()]
+            matches = sum(w in finding_words for w in words)
+            posts += [{'title':page_title, 'url':page_url, 'match':matches}]
+
+        posts.sort(key=itemgetter('match'), reverse=True)
+        for p in posts:
+            print("\n[+] Title: {}\n[+] URL : {}".format(p['title'], p['url']))
+            if 'open_in_browser' in self.conf and self.conf['open_in_browser'] == True:
+                system('''{} "{}"'''.format(self.conf['browser'], p['url']))
+
+    def get_cwd_info(self):
+        p = path.normpath(getcwd()).split(sep)
+        if len(p) >= 2 and p[-2].isnumeric() and re.match(r"[a-z]", p[-1]):
+            cid = int(p[-2])
+            level = p[-1]
+        elif len(p) >= 1 and p[-2].isnumeric():
+            cid = int(p[-1])
+            level = None
+        else:
+            cid = None
+            level = None
+        return cid, level
+
+    def find_by_cid(self, cid):
+        db = []
+        if cid:
+            cur = self.db.cursor()
+            db = cur.execute(f'''SELECT title, authors, start, length, participants FROM codeforces WHERE cid = {cid};''').fetchone()
+        return db
+
+    def show_contest_info(self, args):
+        if args.cid: 
+            cid = int(args.cid)
+        else:
+            cid, _ = self.get_cwd_info()
+        if cid:
+            db = self.find_by_cid(cid)
+            print("[+] ContestID={}".format(cid))
+            print(db[0], db[2], db[3])
+        else:
+            print("[!] ContestID not found.")
 
     def open_url(self, args):
         if not args.cid: return
@@ -130,6 +189,7 @@ class Codeforces:
     def show_contests(self, contests, check_solved=False, upcoming=False):
         solved_width = 0
         solved_contests = 0
+        contests_nr = 0;
         if check_solved:
             solved_list = self.solved_problems()
             solved_width = max(map(len, self.conf['problem_range'].values()))+1
@@ -163,8 +223,9 @@ class Codeforces:
 
             if not check_solved or problems.strip():
                 print("{:04d} {:<3} {:<{solved_width}}{:<{width}} {} ({}){}{}".format(cid, div, problems, title[:self.conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, countdown, participants, width=self.conf['title_width'], solved_width=solved_width))
+                contests_nr += 1
         if check_solved:
-            print("[+] Solved {:d} contests".format(solved_contests))
+            print("[+] Solved {:d}/{:d} contests".format(solved_contests, contests_nr))
 
     def list_contest(self, args, upcoming=False):
         cur = self.db.cursor()
@@ -220,13 +281,13 @@ def main():
 #    _submission.add_argument('level', metavar='contestID', nargs='?', action='store', type=str)
 #    _submission.set_defaults(func=cf.get_submission)
 
-#    _info = subparsers.add_parser('info', aliases=['i'], help="Show current problem's info")
-#    _info.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
-#    _info.set_defaults(func=cf.info_contest)
+    _info = subparsers.add_parser('info', aliases=['i'], help="Show contest info")
+    _info.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
+    _info.set_defaults(func=cf.show_contest_info)
 
-#    _editorial = subparsers.add_parser('editorial', aliases=['e'], help="Search editorial links")
-#    _editorial.add_argument('cid', metavar='contestID', nargs='+', action='store', type=int)
-#    _editorial.set_defaults(func=cf.search_editorial)
+    _editorial = subparsers.add_parser('editorial', aliases=['e'], help="Search editorial links")
+    _editorial.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
+    _editorial.set_defaults(func=cf.search_editorial)
 
     _open = subparsers.add_parser('open', aliases=['o'], help="Open codeforces URL")
     _open.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
