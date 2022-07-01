@@ -34,6 +34,7 @@ $ cf-cli upcoming
 - [ ] Submit submission
 - [ ] Current contest countdown
 - [ ] Support user-agent
+- [ ] Support cookies
 - [ ] Support RCPC token
 - [ ] Support pip
 - [ ] Color interface

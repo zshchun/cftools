@@ -98,7 +98,7 @@ class Codeforces:
         if len(p) >= 2 and p[-2].isnumeric() and re.match(r"[a-z]", p[-1]):
             cid = int(p[-2])
             level = p[-1]
-        elif len(p) >= 1 and p[-2].isnumeric():
+        elif len(p) >= 1 and p[-1].isnumeric():
             cid = int(p[-1])
             level = None
         else:
@@ -106,7 +106,7 @@ class Codeforces:
             level = None
         return cid, level
 
-    def find_by_cid(self, cid):
+    def get_contest_info(self, cid):
         db = []
         if cid:
             cur = self.db.cursor()
@@ -116,12 +116,17 @@ class Codeforces:
     def show_contest_info(self, args):
         if args.cid: 
             cid = int(args.cid)
+            level = None
         else:
-            cid, _ = self.get_cwd_info()
+            cid, level = self.get_cwd_info()
         if cid:
-            db = self.find_by_cid(cid)
-            print("[+] ContestID={}".format(cid))
-            print(db[0], db[2], db[3])
+            c = self.get_contest_info(cid)
+            #div = ''.join(self.parse_div(db[0]))
+            print("[+] Show contest info")
+            if level:
+                print("{}{} - {}".format(cid, level, c[0]))
+            else:
+                print("{} - {}".format(cid, c[0]))
         else:
             print("[!] ContestID not found.")
 
