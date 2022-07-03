@@ -66,7 +66,7 @@ class Codeforces:
         cid = args.cid
         if not cid:
             cid, _ = self.get_cwd_info()
-        db = self.find_by_cid(cid)
+        db = self.get_contest_info(cid)
         if not cid or not db:
             print("[!] Invalid ContestID")
             return
@@ -141,10 +141,13 @@ class Codeforces:
 
     def parse_list(self, raw_contests, upcoming=0, write_db=True):
         cur = self.db.cursor()
+        last_contest = cur.execute('''SELECT cid, start FROM codeforces WHERE upcoming = 0 ORDER BY start DESC;''').fetchone()[0]
         contests = {}
+        page_overlapped = False
         tz_msk = timezone(timedelta(hours=3))
         for c in raw_contests.find_all("tr", {"data-contestid": True}):
-            cid = c['data-contestid']
+            cid = int(c['data-contestid'])
+            if last_contest == cid: page_overlapped = True
             td = c.find_all("td")
 #           urls = [h.extract()['href'] for h in td[0].find_all('a', href=True)]
             title = td[0].text.lstrip().splitlines()[0]
@@ -161,7 +164,7 @@ class Codeforces:
             if write_db:
                 cur.execute('INSERT or REPLACE INTO codeforces (cid, title, authors, start, length, participants, upcoming) VALUES (?, ?, ?, ?, ?, ?, ?)', (cid, title, json.dumps(authors), start, length, participants, upcoming))
         if write_db: self.db.commit()
-        return contests
+        return page_overlapped
 
     def parse_div(self, title):
         r = []
@@ -250,7 +253,7 @@ class Codeforces:
                 bs = BeautifulSoup(html, 'html.parser')
                 table = bs.find_all("div", {"class": "datatable"})
                 self.parse_list(table[0], upcoming=1, write_db=True)
-                self.parse_list(table[1], write_db=True)
+                if self.parse_list(table[1], write_db=True): break
             print()
 
         if upcoming:
