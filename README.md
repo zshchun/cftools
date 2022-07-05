@@ -39,3 +39,6 @@ $ cf-cli upcoming
 - [ ] Support pip
 - [ ] Color interface
 - [ ] Show streak stats
+- [ ] Clear databases/cache
+- [ ] Support multiplatform
+- [ ] Support languages

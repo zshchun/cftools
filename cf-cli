@@ -13,26 +13,30 @@ from os import environ, path, mkdir, listdir, system, getcwd, sep
 from sys import argv, exit
 from operator import itemgetter
 from urllib.parse import urlencode
-from urllib.request import urlopen, Request
+from urllib.request import urlopen, Request, build_opener, HTTPCookieProcessor
+from urllib.error import HTTPError
+from http.cookiejar import CookieJar
 __VERSION__ = "0.1"
 
 class Codeforces:
     def __init__(self):
         basedir = environ["HOME"] + "/.cf-cli"
         config_path = basedir + "/config.toml"
+        cookies = CookieJar()
+        self.opener = build_opener(HTTPCookieProcessor(cookies))
+        self.tz_msk = timezone(timedelta(hours=3))
         if path.isfile(config_path):
             self.conf = tomli.load(open(config_path, "rb"))
         else:
-            self.conf = {'solved_path': '~/codeforces', 'lang_ext': ['cpp'], 'cache': '~/.cf-cli/cache.db', 'title_width': 40, 'max_page': 3, 'open_in_browser': True, 'browser': 'google-chrome', 'problem_range': {'1': [], '2': ['a', 'b'], '3': ['a', 'b', 'c', 'd'], '4': [], 'G': ['a', 'b']}}
-        if not path.isdir(basedir):
-            mkdir(basedir)
-        if not path.isdir(path.expanduser(self.conf['solved_path'])):
-            mkdir(path.expanduser(self.conf['solved_path']))
+            self.conf = {'solved_dir': '~/codeforces', 'cache_dir': '~/codeforces/cache', 'lang_ext': ['cpp'], 'database': '~/codeforces/cache.db', 'title_width': 40, 'max_page': 3, 'open_in_browser': True, 'browser': 'google-chrome', 'pager': 'less', 'problem_range': {'1': [], '2': ['a', 'b'], '3': ['a', 'b', 'c', 'd'], '4': [], 'G': ['a', 'b']}}
+        for d in [basedir, self.conf['solved_dir'], self.conf['cache_dir']]:
+            if not path.isdir(path.expanduser(d)):
+                mkdir(path.expanduser(d))
         self.domain = 'https://codeforces.com'
         self.headers = { 'Accept': '*/*', 'content-type': 'application/x-www-form-urlencoded', }
-        cache_path = path.expanduser(self.conf['cache'])
-        if not path.isfile(cache_path):
-            self.db = sqlite3.connect(cache_path)
+        database = path.expanduser(self.conf['database'])
+        if not path.isfile(database):
+            self.db = sqlite3.connect(database)
             cur = self.db.cursor()
             cur.execute('''CREATE TABLE codeforces (cid integer primary key, title varchar, authors varchar, start varchar, length varchar, participants integer, upcoming integer);''')
             cur.execute('''CREATE TABLE modifications (site TEXT NOT NULL PRIMARY KEY ON CONFLICT REPLACE, last_modified TIMESTAMP DEFAULT current_timestamp);''')
@@ -42,25 +46,86 @@ class Codeforces:
             cur.execute('''CREATE TRIGGER insert_time_codeforces AFTER INSERT ON codeforces BEGIN UPDATE modifications SET last_modified = current_timestamp WHERE site = 'codeforces'; END;''')
             self.db.commit()
         else:
-            self.db = sqlite3.connect(cache_path)
+            self.db = sqlite3.connect(database)
  
-    def http_get(self, path):
-        req = Request(self.domain + path, headers=self.headers);
+    def http_get(self, path, headers=None):
+        if headers == None: headers = self.headers
+        if path.startswith('/'): path = self.domain + path
+        req = Request(path, headers=headers);
         result = None
-        with urlopen(req) as response:
+        with self.opener.open(req) as response:
             result = response.read()
         return result.decode('utf-8')
 
-    def http_post(self, path, data):
-        req = Request(self.domain + path, headers=self.headers, data=urlencode(data).encode())
+    def http_post(self, path, data, headers=None):
+        if headers == None: headers = self.headers
+        if path.startswith('/'): path = self.domain + path
+        req = Request(path, headers=headers, data=urlencode(data).encode())
         result = None
-        with urlopen(req) as response:
+        with self.opener.open(req) as response:
             result = response.read()
         return result.decode('utf-8')
 
-    def get_submission(self, args):
-        # TODO
-        print("get submission", args.cid, args.level)
+    def view_submission(self, sid, prefix=''):
+        json_path = "{}/{}-{}.json".format(path.expanduser(self.conf['cache_dir']), prefix, sid)
+        if path.isfile(json_path):
+            res = open(json_path, 'r').read()
+        else:
+            res = self.http_post("/data/submitSource", { 'submissionId':sid })
+            open(json_path, 'w').write(res)
+        print("[+] Cached:", json_path)
+        js = json.loads(res)
+        lang_ext = js['prettifyClass'][5:] if js['prettifyClass'].startswith('lang-') else js['prettifyClass']
+        source_path = "{}/{}-{}.{}".format(path.expanduser(self.conf['cache_dir']), prefix, sid, lang_ext)
+        open(source_path, 'w').write(js['source'])
+        if "pager" in self.conf:
+            print("[+] View source:", source_path)
+            system(self.conf["pager"] + ' "' + source_path + '"')
+
+    def get_solutions(self, args):
+        cid = args.cid
+        level = args.cid
+        if not cid or not level:
+            cid, level = self.get_cwd_info()
+        if not cid or not level:
+            print("[!] Invalid contestID or level")
+            return
+        post_data = { 'action':'setupSubmissionFilter', \
+                'frameProblemIndex':level.upper(), \
+                'verdictName':'OK', \
+                'programTypeForInvoker':'anyProgramTypeForInvoker', \
+                'comparisonType':'NOT_USED', \
+                'judgedTestCount':'', \
+                'participantSubstring':'', \
+        }
+#        order = 'BY_JUDGED_DESC'
+        order = 'BY_ARRIVED_ASC'
+        page = 1
+        page_path = "/contest/{}/status/page/{}?order={}".format(cid, page, order)
+        res = self.http_post(page_path, post_data)
+        bs = BeautifulSoup(res, 'html.parser')
+        table = bs.find("table", {"class": "status-frame-datatable"})
+        tr = table.find_all("tr", {"data-submission-id": True})
+        assert len(tr) > 0, "empty tr tag"
+        for t in tr:
+            td = t.find_all("td")
+            assert len(td) > 6, "not enough td tags"
+            url = self.domain + td[0].find('a', href=True)['href']
+            sid = td[0].text.strip()
+            when = datetime.strptime(td[1].find('span').text, "%b/%d/%Y %H:%M").replace(tzinfo=self.tz_msk).astimezone(tz=None).strftime('%y-%m-%d %H:%M')
+            a = td[2].find('a', href=True)
+#           TODO user color who['class']
+            who = {'profile':a['href'],'class':a['class'][1],'title':a['title'],'name':a.text}
+            problem = td[3].text.strip()
+            lang = td[4].text.strip()
+            verdict = td[5].text.strip()
+            ms = td[6].text.strip()
+            mem = td[7].text.strip()
+            assert verdict == 'Accepted', 'submission was not accepted'
+            print(sid, when, problem, who['name'], lang, ms, mem)
+            choice = input("View this solution? [Y/n]").lower()
+            if choice == "yes" or choice == 'y' or choice == '':
+                r = self.view_submission(sid, str(cid)+level)
 
     def search_editorial(self, args):
         cid = args.cid
@@ -68,7 +133,7 @@ class Codeforces:
             cid, _ = self.get_cwd_info()
         db = self.get_contest_info(cid)
         if not cid or not db:
-            print("[!] Invalid ContestID")
+            print("[!] Invalid contestID")
             return
         title = re.sub(r' ?\([^)]*\)', '', db[0])
         print("[+] Searching for", title, "editorial")
@@ -121,7 +186,6 @@ class Codeforces:
             cid, level = self.get_cwd_info()
         if cid:
             c = self.get_contest_info(cid)
-            #div = ''.join(self.parse_div(db[0]))
             print("[+] Show contest info")
             if level:
                 print("{}{} - {}".format(cid, level, c[0]))
@@ -144,7 +208,6 @@ class Codeforces:
         last_contest = cur.execute('''SELECT cid, start FROM codeforces WHERE upcoming = 0 ORDER BY start DESC;''').fetchone()[0]
         contests = {}
         page_overlapped = False
-        tz_msk = timezone(timedelta(hours=3))
         for c in raw_contests.find_all("tr", {"data-contestid": True}):
             cid = int(c['data-contestid'])
             if last_contest == cid: page_overlapped = True
@@ -153,7 +216,7 @@ class Codeforces:
             title = td[0].text.lstrip().splitlines()[0]
             authors = [{'profile':a['href'],'class':a['class'][1],'title':a['title'],'name':a.text} for a in td[1].find_all('a', href=True)]
             start = td[2].find('span').text
-            start = datetime.strptime(start, "%b/%d/%Y %H:%M").replace(tzinfo=tz_msk)
+            start = datetime.strptime(start, "%b/%d/%Y %H:%M").replace(tzinfo=self.tz_msk)
             length = td[3].text.strip()
             if upcoming:
                 participants = 0
@@ -179,8 +242,7 @@ class Codeforces:
     def solved_problems(self):
         # TODO support directory hierachy. ex) 1600/a.cpp
         ret = {}
-
-        for fn in listdir(path.expanduser(self.conf['solved_path'])):
+        for fn in listdir(path.expanduser(self.conf['solved_dir'])):
             t = path.splitext(fn)
             name = t[0]
             ext = t[1].lstrip('.')
@@ -227,7 +289,7 @@ class Codeforces:
                 d = start - datetime.now().astimezone(tz=None)
                 h = d.seconds // 3600
                 m = d.seconds // 60 % 60
-                countdown = ' {}:{:02d}:{:02d}'.format(d.days, h, m)
+                countdown = ' {}d+{:02d}:{:02d}'.format(d.days, h, m)
 
             if not check_solved or problems.strip():
                 print("{:04d} {:<3} {:<{solved_width}}{:<{width}} {} ({}){}{}".format(cid, div, problems, title[:self.conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, countdown, participants, width=self.conf['title_width'], solved_width=solved_width))
@@ -284,16 +346,16 @@ def main():
     _list.add_argument('-f', '--force',  action='store_true', help="Update cache")
     _list.set_defaults(func=cf.list_upcoming)
 
-#    _submission = subparsers.add_parser('submission', aliases=['a'], help="Get problem's submissions", allow_abbrev=True)
-#    _submission.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
-#    _submission.add_argument('level', metavar='contestID', nargs='?', action='store', type=str)
-#    _submission.set_defaults(func=cf.get_submission)
+    _solution = subparsers.add_parser('solution', aliases=['q'], help="Get problem's solutions", allow_abbrev=True)
+    _solution.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
+    _solution.add_argument('level', metavar='contestID', nargs='?', action='store', type=str)
+    _solution.set_defaults(func=cf.get_solutions)
 
     _info = subparsers.add_parser('info', aliases=['i'], help="Show contest info")
     _info.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
     _info.set_defaults(func=cf.show_contest_info)
 
-    _editorial = subparsers.add_parser('editorial', aliases=['e'], help="Search editorial links")
+    _editorial = subparsers.add_parser('editorial', aliases=['d'], help="Search editorial links")
     _editorial.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
     _editorial.set_defaults(func=cf.search_editorial)
 

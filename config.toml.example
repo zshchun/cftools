@@ -1,10 +1,12 @@
-solved_path = "~/codeforces"
+solved_dir = "~/codeforces"
+cache_dir = "~/codeforces/cache"
 lang_ext = ['cpp']
-cache = "~/.cf-cli/cache.db"
+database = "~/codeforces/cache.db"
 title_width = 40
 max_page = 3
 open_in_browser = true
 browser = "google-chrome"
+pager = "less"
 
 [problem_range]
 1 = []
