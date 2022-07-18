@@ -1,5 +1,5 @@
 # Codeforces CLI
-cf-cli is a unofficial command-line tool for [codeforces](https://codeforces.com).
+Codeforces CLI is a unofficial command-line tool for [codeforces](https://codeforces.com).
 
 # Requirement
 ```
@@ -7,12 +7,12 @@ pip install tomli pycryptodome beautifulsoup4
 ```
 
 # Configuration
-Default configuration file is $HOME/.cf-cli/config.[toml](https://toml.io/).
+Default configuration file is $HOME/.cf/config.[toml](https://toml.io/).
 
 # Usage
 ## List contests
 ```
-$ cf-cli list
+$ cf list
 [+] Past contests
 ...
 1695 D2  AB   Codeforces Round #801 (Div. 2) and EPIC  2022-06-18 23:35 (02:00) x22255
@@ -24,7 +24,7 @@ $ cf-cli list
 
 ## List upcoming contests
 ```
-$ cf-cli upcoming
+$ cf upcoming
 [+] Current or upcoming contests
 1699 D2  Codeforces Round #804 (Div. 2)           2022-07-04 23:35 (02:00) 4:23:51
 ```
@@ -42,3 +42,5 @@ $ cf-cli upcoming
 - [ ] Clear databases/cache
 - [ ] Support multiplatform
 - [ ] Support languages
+- [ ] Problem parser
+- [ ] Login
