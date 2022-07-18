@@ -154,6 +154,9 @@ def open_url(args):
     if 'open_in_browser' in conf and conf['open_in_browser'] == True:
         system('''{} "{}" "{}"'''.format(conf['browser'], contest_url, problems_url))
 
+def count_contests(contests):
+     return len([c for c in contests.find_all("tr", {"data-contestid": True})])
+
 def parse_list(raw_contests, upcoming=0, write_db=True):
     cur = db.cursor()
     last_contest = cur.execute('''SELECT cid, start FROM codeforces WHERE upcoming = 0 ORDER BY start DESC;''').fetchone()
@@ -241,12 +244,19 @@ def show_contests(contests, check_solved=False, upcoming=False):
                 d = start - datetime.now().astimezone(tz=None)
                 h = d.seconds // 3600
                 m = d.seconds // 60 % 60
-                countdown = ' {}d+{:02d}:{:02d}'.format(d.days, h, m)
+                countdown = ' {:02}d+{:02d}:{:02d}'.format(d.days, h, m)
             else:
-                d = datetime.now().astimezone(tz=None) - start
-                h = int(length.split(':')[0]) - (d.seconds // 3600)
-                m = int(length.split(':')[1]) - ((d.seconds // 60 % 60)+1)
-                countdown = '   -{:02d}:{:02d}'.format(h, m)
+                d = start - datetime.now().astimezone(tz=None)
+                t = d.seconds + int(length.split(':')[0])*3600 + int(length.split(':')[1])*60
+                h = t // 3600
+                m = t // 60 % 60
+#                countdown = ' {}d+{:02d}:{:02d}'.format(d.days, h, m)
+#                d = datetime.now().astimezone(tz=None) - start
+#                print(int(length.split(':')[0]), (d.seconds // 3600))
+#                print(int(length.split(':')[1]), ((d.seconds // 60 % 60)+1))
+#                h = int(length.split(':')[0]) - (d.seconds // 3600)
+#                m = int(length.split(':')[1]) - ((d.seconds // 60 % 60)+1)
+                countdown = '    -{:02d}:{:02d}'.format(h, m)
 
         if not check_solved or problems.strip():
             print("{:04d} {:<3} {:<{solved_width}}{:<{width}} {} ({}){}{}".format(cid, div, problems, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, countdown, participants, width=conf['title_width'], solved_width=solved_width))
@@ -271,6 +281,9 @@ def list_contest(args, upcoming=False):
             html = _http.get(page_path)
             bs = BeautifulSoup(html, 'html.parser')
             table = bs.find_all("div", {"class": "datatable"})
+            if count_contests(table[1]) == 0:
+                print("\n[!] Contest is running")
+                break
             parse_list(table[0], upcoming=1, write_db=True)
             if parse_list(table[1], write_db=True): break
         print()
