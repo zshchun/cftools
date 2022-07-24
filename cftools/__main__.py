@@ -26,6 +26,9 @@ def main():
     _info.add_argument('level', metavar='contestID', nargs='?', action='store', type=str)
     _info.set_defaults(func=contest.show_contest_info)
 
+    _login = subparsers.add_parser('login', help="Sign in codeforces account")
+    _login.set_defaults(func=contest.login)
+
     _editorial = subparsers.add_parser('editorial', aliases=['d'], help="Search editorial links")
     _editorial.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
     _editorial.set_defaults(func=contest.search_editorial)

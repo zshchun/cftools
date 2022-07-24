@@ -1,9 +1,9 @@
 # Codeforces CLI
 Codeforces CLI is a unofficial command-line tool for [codeforces](https://codeforces.com).
 
-# Requirement
+# Installation
 ```
-pip install tomli pycryptodome beautifulsoup4
+pip3 install cftools
 ```
 
 # Configuration
@@ -29,18 +29,23 @@ $ cf upcoming
 1699 D2  Codeforces Round #804 (Div. 2)           2022-07-04 23:35 (02:00) 4:23:51
 ```
 
+## Login
+```
+$ cf login
+```
+
 # TODO
 - [x] Search editorial link
 - [ ] Submit submission
 - [ ] Current contest countdown
 - [ ] Support user-agent
-- [ ] Support cookies
+- [x] Support cookies
 - [ ] Support RCPC token
-- [ ] Support pip
+- [x] Support pip
 - [ ] Color interface
 - [ ] Show streak stats
 - [ ] Clear databases/cache
 - [ ] Support multiplatform
 - [ ] Support languages
 - [ ] Problem parser
-- [ ] Login
+- [x] Login

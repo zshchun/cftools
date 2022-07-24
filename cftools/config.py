@@ -23,6 +23,7 @@ DEFAULT_CONFIG = {
     }
 
 base_dir = environ["HOME"] + "/.cf"
+cookies_path = base_dir + '/cookies.txt'
 config_path = base_dir + "/config.toml"
 tz_msk = timezone(timedelta(hours=3))
 conf = None

@@ -1,4 +1,5 @@
-from http.cookiejar import CookieJar
+from . import config
+from http.cookiejar import CookieJar, MozillaCookieJar, Cookie
 from urllib.request import build_opener, HTTPCookieProcessor
 from urllib.parse import urlencode
 from urllib.request import urlopen, Request
@@ -21,6 +22,7 @@ def get(path, headers=None):
     result = None
     with opener.open(req) as response:
         result = response.read()
+        cookies.save()
     return result.decode('utf-8')
 
 def post(path, data, headers=None):
@@ -30,8 +32,9 @@ def post(path, data, headers=None):
     result = None
     with opener.open(req) as response:
         result = response.read()
+        cookies.save()
     return result.decode('utf-8')
 
 if not opener:
-    cookies = CookieJar()
+    cookies = MozillaCookieJar(config.cookies_path)
     opener = build_opener(HTTPCookieProcessor(cookies))

@@ -2,6 +2,8 @@
 import json
 import logging
 import re
+from random import choice
+from getpass import getpass
 from . import _http
 from .config import conf, db, tz_msk
 from time import time
@@ -210,6 +212,40 @@ def solved_problems():
                 ret[cid].append(level)
     return ret
 
+def check_login(html_data):
+    bs = BeautifulSoup(html_data, 'html.parser')
+    titled = bs.find('div', {'class':'caption titled'}).text.strip()
+    if titled == 'Login into Codeforces':
+        return False
+    else:
+        return True
+
+def login(args):
+    print('[+] Login account')
+    login_url = _http.CF_DOMAIN + "/enter?back=%2F"
+    handle = input("Input handle or email: ")
+    passwd = getpass()
+    html_data = _http.get(login_url)
+    bs = BeautifulSoup(html_data, 'html.parser')
+    csrf_token = bs.find("span", {"class": "csrf-token", 'data-csrf':True})['data-csrf']
+    ftaa = ''.join([choice('abcdefghijklmnopqrstuvwxyz0123456789') for x in range(18)])
+# bfaa : Fingerprint2.x64hash128
+    bfaa = ''.join([choice('0123456789abcdef') for x in range(32)])
+    login_data = {
+        'csrf_token': csrf_token,
+        'action': 'enter',
+        'ftaa': ftaa,
+        'bfaa': bfaa,
+        'handleOrEmail': handle,
+        'password': passwd,
+        'remember': 'on',
+    }
+    html_data = _http.post(login_url, login_data)
+    if check_login(html_data):
+        print("[+] Login successful")
+    else:
+        print("[!] Login failed")
+
 def show_contests(contests, check_solved=False, upcoming=False):
     solved_width = 0
     solved_contests = 0
@@ -250,12 +286,6 @@ def show_contests(contests, check_solved=False, upcoming=False):
                 t = d.seconds + int(length.split(':')[0])*3600 + int(length.split(':')[1])*60
                 h = t // 3600
                 m = t // 60 % 60
-#                countdown = ' {}d+{:02d}:{:02d}'.format(d.days, h, m)
-#                d = datetime.now().astimezone(tz=None) - start
-#                print(int(length.split(':')[0]), (d.seconds // 3600))
-#                print(int(length.split(':')[1]), ((d.seconds // 60 % 60)+1))
-#                h = int(length.split(':')[0]) - (d.seconds // 3600)
-#                m = int(length.split(':')[1]) - ((d.seconds // 60 % 60)+1)
                 countdown = '    -{:02d}:{:02d}'.format(h, m)
 
         if not check_solved or problems.strip():
