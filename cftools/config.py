@@ -13,18 +13,19 @@ DEFAULT_CONFIG = {
     'open_in_browser': True,
     'browser': 'google-chrome',
     'pager': 'less',
-    'problem_range': {
-        '1': [],
-        '2': ['a', 'b'],
-        '3': ['a', 'b', 'c', 'd'],
-        '4': [],
-        'G': ['a', 'b']
+    'contest_goals': {
+        '1': 3,
+        '2': 5,
+        '3': 9,
+        '4': 9,
+        'G': 5,
         }
     }
 
 base_dir = environ["HOME"] + "/.cf"
-cookies_path = base_dir + '/cookies.txt'
-csrf_path = base_dir + '/csrf.txt'
+cookies_path = base_dir + '/cookies'
+csrf_path = base_dir + '/csrf_token'
+solved_path = base_dir + '/solved.json'
 config_path = base_dir + "/config.toml"
 tz_msk = timezone(timedelta(hours=3))
 conf = None

@@ -10,7 +10,7 @@ def main():
     _list = subparsers.add_parser('list', aliases=['l'], help="List contests", allow_abbrev=True)
     _list.add_argument('-f', '--force',  action='store_true', help="Update cache")
     _list.add_argument('-a', '--all',  action='store_true', help="Show all contests")
-    _list.set_defaults(func=contest.list_contest)
+    _list.set_defaults(func=contest.list_past_contest)
 
     _upcoming = subparsers.add_parser('upcoming', aliases=['u'], help="List upcoming contests", allow_abbrev=True)
     _upcoming.add_argument('-f', '--force',  action='store_true', help="Update cache")

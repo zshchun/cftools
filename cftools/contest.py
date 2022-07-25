@@ -5,7 +5,8 @@ import re
 from random import choice
 from getpass import getpass
 from . import _http
-from .config import conf, db, tz_msk
+from . import config
+from .config import conf, db
 from time import time
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
@@ -49,8 +50,8 @@ def get_solutions(args):
 #        order = 'BY_JUDGED_DESC'
     order = 'BY_ARRIVED_ASC'
     page = 1
-    page_path = "/contest/{}/status/page/{}?order={}".format(cid, page, order)
-    res = _http.post(page_path, post_data)
+    url = "/contest/{}/status/page/{}?order={}".format(cid, page, order)
+    res = _http.post(url, post_data)
     bs = BeautifulSoup(res, 'html.parser')
     table = bs.find("table", {"class": "status-frame-datatable"})
     tr = table.find_all("tr", {"data-submission-id": True})
@@ -58,9 +59,9 @@ def get_solutions(args):
     for t in tr:
         td = t.find_all("td")
         assert len(td) > 6, "not enough td tags"
-        url = _http.CF_DOMAIN + td[0].find('a', href=True)['href']
+#        url = _http.CF_DOMAIN + td[0].find('a', href=True)['href']
         sid = td[0].text.strip()
-        when = datetime.strptime(td[1].find('span').text, "%b/%d/%Y %H:%M").replace(tzinfo=tz_msk).astimezone(tz=None).strftime('%y-%m-%d %H:%M')
+        when = datetime.strptime(td[1].find('span').text, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk).astimezone(tz=None).strftime('%y-%m-%d %H:%M')
         a = td[2].find('a', href=True)
 #           TODO user color who['class']
         who = {'profile':a['href'],'class':a['class'][1],'title':a['title'],'name':a.text}
@@ -79,11 +80,11 @@ def search_editorial(args):
     cid = args.cid
     if not cid:
         cid, _ = get_cwd_info()
-    db = get_contest_info(cid)
-    if not cid or not db:
+    contest_info = get_contest_info(cid)
+    if not cid or not contest_info:
         print("[!] Invalid contestID")
         return
-    title = re.sub(r' ?\([^)]*\)', '', db[0])
+    title = re.sub(r' ?\([^)]*\)', '', contest_info[0])
     print("[+] Searching for", title, "editorial")
     res = _http.post('/search', {'query': title + ' editorial' })
     bs = BeautifulSoup(res, 'html.parser')
@@ -172,7 +173,7 @@ def parse_list(raw_contests, upcoming=0, write_db=True):
         title = td[0].text.lstrip().splitlines()[0]
         authors = [{'profile':a['href'],'class':a['class'][1],'title':a['title'],'name':a.text} for a in td[1].find_all('a', href=True)]
         start = td[2].find('span').text
-        start = datetime.strptime(start, "%b/%d/%Y %H:%M").replace(tzinfo=tz_msk)
+        start = datetime.strptime(start, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk)
         length = td[3].text.strip()
         if upcoming:
             participants = 0
@@ -228,6 +229,7 @@ def login(args):
     html_data = _http.get(login_url)
     bs = BeautifulSoup(html_data, 'html.parser')
     csrf_token = bs.find("span", {"class": "csrf-token", 'data-csrf':True})['data-csrf']
+    assert len(csrf_token) == 32, "Invalid CSRF token"
     ftaa = ''.join([choice('abcdefghijklmnopqrstuvwxyz0123456789') for x in range(18)])
 # bfaa : Fingerprint2.x64hash128
     bfaa = ''.join([choice('0123456789abcdef') for x in range(32)])
@@ -240,20 +242,24 @@ def login(args):
         'password': passwd,
         'remember': 'on',
     }
+    _http.update_csrf(csrf_token)
     html_data = _http.post(login_url, login_data)
     if check_login(html_data):
         print("[+] Login successful")
     else:
         print("[!] Login failed")
 
-def show_contests(contests, check_solved=False, upcoming=False):
-    solved_width = 0
+def get_solved_count():
+    solved_string = _http.post("/data/contests", _http.getsolved_data, csrf=True)
+    solved_json = json.loads(solved_string)
+    open(config.solved_path, 'w').write(solved_string)
+    return solved_json
+
+def show_contests(contests, check_solved=False, upcoming=False, solved=None):
+    total_contests = 0;
     solved_contests = 0
-    contests_nr = 0;
-    if check_solved:
-        solved_list = solved_problems()
-        solved_width = max(map(len, conf['problem_range'].values()))+1
     for c in contests:
+        total_contests += 1
         cid = c[0]
         title = c[1]
         div = ''.join(parse_div(title))
@@ -263,60 +269,74 @@ def show_contests(contests, check_solved=False, upcoming=False):
             participants = ''
         else:
             participants = ' x' + str(c[5])
-        problems = ''
-        solved_cnt = 0
-        if check_solved and len(div) > 0:
-            for l in conf['problem_range'][div[-1]]:
-                if cid in solved_list and l in solved_list[cid]:
-                    solved_cnt += 1
-                    problems += ' '
-                else:
-                    problems += l.upper()
-            if solved_cnt > 0 and solved_cnt == len(conf['problem_range'][div[-1]]):
-                solved_contests += 1
         countdown = ''
         if upcoming:
+            length_secs = int(length.split(':')[0])*3600 + int(length.split(':')[1])*60
             if start > datetime.now().astimezone(tz=None):
                 d = start - datetime.now().astimezone(tz=None)
                 h = d.seconds // 3600
                 m = d.seconds // 60 % 60
                 countdown = ' {:02}d+{:02d}:{:02d}'.format(d.days, h, m)
-            else:
+            elif (datetime.now().astimezone(tz=None)-start).seconds < length_secs:
                 d = start - datetime.now().astimezone(tz=None)
-                t = d.seconds + int(length.split(':')[0])*3600 + int(length.split(':')[1])*60
+                t = d.seconds + length_secs
                 h = t // 3600
                 m = t // 60 % 60
                 countdown = '    -{:02d}:{:02d}'.format(h, m)
+            else:
+                countdown = '       END'
 
-        if not check_solved or problems.strip():
-            print("{:04d} {:<3} {:<{solved_width}}{:<{width}} {} ({}){}{}".format(cid, div, problems, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, countdown, participants, width=conf['title_width'], solved_width=solved_width))
-            contests_nr += 1
+        if check_solved and solved and str(cid) in solved['solvedProblemCountsByContestId'] and str(cid) in solved['problemCountsByContestId']:
+            solved_cnt = solved['solvedProblemCountsByContestId'][str(cid)]
+            prob_cnt = solved['problemCountsByContestId'][str(cid)]
+            solved_str = "{:d}/{:d} ".format(solved_cnt, prob_cnt)
+            if len(div) > 0 and solved_cnt > 0 and solved_cnt >= conf['contest_goals'][div[-1]]:
+                solved_contests += 1
+        elif solved:
+            solved_str = "    "
+        else:
+            solved_str = ""
+
+        print("{:04d} {:<3} {}{:<{width}} {} ({}){}{}".format(cid, div, solved_str, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, countdown, participants, width=conf['title_width']))
     if check_solved:
-        print("[+] Solved {:d}/{:d} contests".format(solved_contests, contests_nr))
+        print("[+] Solved {:d}/{:d} contests".format(solved_contests, total_contests))
+
 
 def list_contest(args, upcoming=False):
+    solved_json = None
     cur = db.cursor()
-    update = False;
+    if args.force:
+        update = True;
+    else:
+        update = False;
     last_modified = int(cur.execute('''SELECT strftime('%s', last_modified) FROM modifications WHERE site = 'codeforces';''').fetchone()[0])
     now = int(time())
     row_count = cur.execute('''SELECT COUNT(*) FROM codeforces''').fetchone()[0]
     if now - last_modified > 24 * 3600 or row_count == 0:
         update = True
 
-    if args.force or update:
+    if update:
         print('[+] Update contests list', end='', flush=True)
+        urls = [_http.POST("/data/contests", _http.getsolved_data, csrf=True)]
         for page in range(1, conf['max_page']+1):
-            print('.', end='', flush=True)
-            page_path = '/contests/page/{:d}'.format(page)
-            html = _http.get(page_path)
-            bs = BeautifulSoup(html, 'html.parser')
+            urls += [_http.GET('/contests/page/{:d}'.format(page))]
+        pages = _http.urlsopen(urls)
+        solved_json = json.loads(pages[0])
+        open(config.solved_path, 'w').write(pages[0])
+        for page in pages[1:]:
+            bs = BeautifulSoup(page, 'html.parser')
             table = bs.find_all("div", {"class": "datatable"})
             if count_contests(table[1]) == 0:
-                print("\n[!] Contest is running")
+                print("[!] Contest is running")
                 break
             parse_list(table[0], upcoming=1, write_db=True)
             if parse_list(table[1], write_db=True): break
-        print()
+
+    try:
+        with open(config.solved_path, 'r') as f:
+            solved_json = json.load(f)
+    except:
+        solved_json = get_solved_count()
 
     if upcoming:
         print("[+] Current or upcoming contests")
@@ -325,7 +345,10 @@ def list_contest(args, upcoming=False):
     else:
         print("[+] Past contests")
         contests = cur.execute('''SELECT cid, title, authors, start, length, participants FROM codeforces WHERE upcoming = 0 ORDER BY start;''')
-        show_contests(contests, check_solved=not args.all)
+        show_contests(contests, check_solved=not args.all, solved=solved_json)
+
+def list_past_contest(args):
+    list_contest(args, upcoming=False)
 
 def list_upcoming(args):
     list_contest(args, upcoming=True)

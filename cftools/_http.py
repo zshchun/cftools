@@ -1,11 +1,9 @@
 from . import config
-from http.cookiejar import CookieJar, MozillaCookieJar, Cookie
-from urllib.request import build_opener, HTTPCookieProcessor
-from urllib.parse import urlencode
-from urllib.request import urlopen, Request
-from urllib.error import HTTPError
 from Cryptodome.Cipher import AES
+#from urllib.parse import urlencode
 from os import path
+import asyncio
+import aiohttp
 import gzip
 
 CF_DOMAIN = 'https://codeforces.com'
@@ -15,46 +13,79 @@ default_headers = {
     'Accept-Encoding': 'gzip',
     }
 
-opener = None
+session = None
 csrf_token = None
+cookies = None
+getsolved_data = {
+        'action':'getSolvedProblemCountsByContest',
+        'csrf_token': csrf_token,
+    }
 
 def add_header(newhdr, headers=default_headers):
     headers.update(newhdr)
     return headers
 
-def get(path, headers=None, csrf=False):
-    return request(path, headers=headers, csrf=csrf)
+def get(url, headers=None, csrf=False):
+    resp = asyncio.run(_urlsopen([GET(url, headers, csrf)]))
+    if resp:
+        return resp[0]
+    else:
+        return None
 
-def post(path, data, headers=None, csrf=False):
-    return request(path, data=data, headers=headers, csrf=csrf)
+def post(url, data, headers=None, csrf=False):
+    resp = asyncio.run(_urlsopen([POST(url, data, headers, csrf)]))
+    if resp:
+        return resp[0]
+    else:
+        return None
 
-def request(path, data=None, headers=None, csrf=False):
+def GET(url, headers=None, csrf=False):
+    return {'method':async_get, 'url':url, 'headers':headers, 'csrf':csrf}
+
+def POST(url, data, headers=None, csrf=False):
+    return {'method':async_post, 'url':url, 'data':data, 'headers':headers, 'csrf':csrf}
+
+async def async_get(session, url, headers=None, csrf=False):
     if headers == None: headers = default_headers
     if csrf and csrf_token: headers = add_header({'X-Csrf-Token': csrf_token})
-    if path.startswith('/'): path = CF_DOMAIN + path
-    if data:
-        req = Request(path, headers=default_headers, data=urlencode(data).encode())
-    else:
-        req = Request(path, headers=default_headers);
+    if url.startswith('/'): url = CF_DOMAIN + url
     result = None
-    with opener.open(req) as response:
-        if response.headers.get('Content-Encoding') == 'gzip':
-            result = gzip.decompress(response.read())
-        else:
-            result = response.read()
-        cookies.save()
-    return result.decode('utf-8')
+    async with session.get(url, headers=headers) as response:
+        cookies.save(file_path=config.cookies_path)
+        return await response.text()
+
+async def async_post(session, url, data, headers=None, csrf=False):
+    if headers == None: headers = default_headers
+    if csrf and csrf_token: headers = add_header({'X-Csrf-Token': csrf_token})
+    if url.startswith('/'): url = CF_DOMAIN + url
+    result = None
+    async with session.post(url, headers=headers, data=data) as response:
+#    async with session.post(url, headers=headers, data=urlencode(data).encode()) as response:
+        cookies.save(file_path=config.cookies_path)
+        return await response.text()
+
+def urlsopen(urls):
+    return asyncio.run(_urlsopen(urls))
+
+async def _urlsopen(urls):
+    async with aiohttp.ClientSession(cookie_jar=cookies) as session:
+        tasks = []
+        for u in urls:
+            if u['method'] == async_get:
+                tasks += [async_get(session, u['url'], u['headers'], u['csrf'])]
+            elif u['method'] == async_post:
+                tasks += [async_post(session, u['url'], u['data'], u['headers'], u['csrf'])]
+        return await asyncio.gather(*tasks)
 
 def update_csrf(csrf):
     csrf_token = csrf[:32]
     open(config.csrf_path, 'w').write(csrf_token)
 
-if not opener:
-    cookies = MozillaCookieJar(config.cookies_path)
+if not cookies:
+    cookies = aiohttp.CookieJar()
     if path.isfile(config.cookies_path):
-        cookies.load()
+        cookies.load(file_path=config.cookies_path)
     else:
-        cookies.save()
-    opener = build_opener(HTTPCookieProcessor(cookies))
+        cookies.save(file_path=config.cookies_path)
     if path.isfile(config.csrf_path):
         csrf_token = open(config.csrf_path, 'r').read(32)

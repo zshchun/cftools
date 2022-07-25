@@ -8,9 +8,9 @@ open_in_browser = true
 browser = "google-chrome"
 pager = "less"
 
-[problem_range]
-1 = []
-2 = ['a','b']
-3 = ['a','b','c','d']
-4 = []
-G = ['a','b']
+[contest_goals]
+1 = 3
+2 = 5
+3 = 9
+4 = 9
+G = 5
