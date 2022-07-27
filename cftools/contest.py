@@ -135,13 +135,17 @@ def show_contest_info(args):
         cid, level = get_cwd_info()
     if cid:
         c = get_contest_info(cid)
+        if not c:
+            print("[!] ContestID not found")
+            return
         print("[+] Show contest info")
         if level:
-            print("{} - {} {}".format(c[0], cid, level))
+            print("{} {} {}".format(cid, c[0], level))
         else:
-            print("{} - {}".format(c[0], cid))
+            print("{} {}".format(cid, c[0]))
+        print("{}/contest/{}".format(_http.CF_DOMAIN, cid))
     else:
-        print("[!] ContestID not found.")
+        print("[!] ContestID is empty")
 
 def open_url(args):
     if args.cid:
@@ -268,7 +272,7 @@ def show_contests(contests, check_solved=False, upcoming=False, solved=None):
         if upcoming:
             participants = ''
         else:
-            participants = ' x' + str(c[5])
+            participants = ('x'+str(c[5])).rjust(7, ' ')
         countdown = ''
         if upcoming:
             length_secs = int(length.split(':')[0])*3600 + int(length.split(':')[1])*60
@@ -290,17 +294,15 @@ def show_contests(contests, check_solved=False, upcoming=False, solved=None):
             solved_cnt = solved['solvedProblemCountsByContestId'][str(cid)]
             prob_cnt = solved['problemCountsByContestId'][str(cid)]
             solved_str = "{:d}/{:d} ".format(solved_cnt, prob_cnt)
-            if len(div) > 0 and solved_cnt > 0 and solved_cnt >= conf['contest_goals'][div[-1]]:
+            if len(div) > 0 and solved_cnt > 0 and (solved_cnt == prob_cnt or solved_cnt >= conf['contest_goals'][div[-1]]):
                 solved_contests += 1
         elif solved:
             solved_str = "    "
         else:
             solved_str = ""
-
         print("{:04d} {:<3} {}{:<{width}} {} ({}){}{}".format(cid, div, solved_str, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, countdown, participants, width=conf['title_width']))
     if check_solved:
         print("[+] Solved {:d}/{:d} contests".format(solved_contests, total_contests))
-
 
 def list_contest(args, upcoming=False):
     solved_json = None
@@ -316,7 +318,7 @@ def list_contest(args, upcoming=False):
         update = True
 
     if update:
-        print('[+] Update contests list', end='', flush=True)
+        print('[+] Update contests list')
         urls = [_http.POST("/data/contests", _http.getsolved_data, csrf=True)]
         for page in range(1, conf['max_page']+1):
             urls += [_http.GET('/contests/page/{:d}'.format(page))]
