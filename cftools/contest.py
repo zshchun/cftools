@@ -6,6 +6,7 @@ from random import choice
 from getpass import getpass
 from . import _http
 from . import config
+from .color import setcolor
 from .config import conf, db
 from time import time
 from bs4 import BeautifulSoup
@@ -259,20 +260,17 @@ def get_solved_count():
     open(config.solved_path, 'w').write(solved_string)
     return solved_json
 
-def show_contests(contests, check_solved=False, upcoming=False, solved=None):
+def show_contests(contests, check_solved=False, upcoming=False, solved_json=None):
     total_contests = 0;
     solved_contests = 0
     for c in contests:
+        color = ''
         total_contests += 1
         cid = c[0]
         title = c[1]
         div = ''.join(parse_div(title))
         start = datetime.strptime(c[3], '%Y-%m-%d %H:%M:%S%z').astimezone(tz=None)
         length = c[4]
-        if upcoming:
-            participants = ''
-        else:
-            participants = ('x'+str(c[5])).rjust(7, ' ')
         countdown = ''
         if upcoming:
             length_secs = int(length.split(':')[0])*3600 + int(length.split(':')[1])*60
@@ -289,18 +287,26 @@ def show_contests(contests, check_solved=False, upcoming=False, solved=None):
                 countdown = '    -{:02d}:{:02d}'.format(h, m)
             else:
                 countdown = '       END'
+            participants = ''
+            weekday = start.strftime(' %a')
+        else:
+            participants = ('x'+str(c[5])).rjust(7, ' ')
+            weekday = ''
 
-        if check_solved and solved and str(cid) in solved['solvedProblemCountsByContestId'] and str(cid) in solved['problemCountsByContestId']:
-            solved_cnt = solved['solvedProblemCountsByContestId'][str(cid)]
-            prob_cnt = solved['problemCountsByContestId'][str(cid)]
+        if check_solved and solved_json and str(cid) in solved_json['solvedProblemCountsByContestId'] and str(cid) in solved_json['problemCountsByContestId']:
+            solved_cnt = solved_json['solvedProblemCountsByContestId'][str(cid)]
+            prob_cnt = solved_json['problemCountsByContestId'][str(cid)]
             solved_str = "{:d}/{:d} ".format(solved_cnt, prob_cnt)
             if len(div) > 0 and solved_cnt > 0 and (solved_cnt == prob_cnt or solved_cnt >= conf['contest_goals'][div[-1]]):
                 solved_contests += 1
-        elif solved:
+                color = 'green'
+        elif solved_json:
             solved_str = "    "
         else:
             solved_str = ""
-        print("{:04d} {:<3} {}{:<{width}} {} ({}){}{}".format(cid, div, solved_str, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, countdown, participants, width=conf['title_width']))
+        contest_info = "{:04d} {:<3} {}{:<{width}} {} ({}){}{}{}".format(cid, div, solved_str, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, weekday, countdown, participants, width=conf['title_width'])
+        contest_info = setcolor(color, contest_info)
+        print(contest_info)
     if check_solved:
         print("[+] Solved {:d}/{:d} contests".format(solved_contests, total_contests))
 
@@ -334,10 +340,10 @@ def list_contest(args, upcoming=False):
             parse_list(table[0], upcoming=1, write_db=True)
             if parse_list(table[1], write_db=True): break
 
-    try:
+    if not args.solved and path.isfile(config.solved_path):
         with open(config.solved_path, 'r') as f:
             solved_json = json.load(f)
-    except:
+    else:
         solved_json = get_solved_count()
 
     if upcoming:
@@ -347,7 +353,7 @@ def list_contest(args, upcoming=False):
     else:
         print("[+] Past contests")
         contests = cur.execute('''SELECT cid, title, authors, start, length, participants FROM codeforces WHERE upcoming = 0 ORDER BY start;''')
-        show_contests(contests, check_solved=not args.all, solved=solved_json)
+        show_contests(contests, check_solved=not args.all, solved_json=solved_json)
 
 def list_past_contest(args):
     list_contest(args, upcoming=False)
