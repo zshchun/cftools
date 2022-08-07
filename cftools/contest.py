@@ -141,7 +141,7 @@ def show_contest_info(args):
             return
         print("[+] Show contest info")
         if level:
-            print("{} {} {}".format(cid, c[0], level))
+            print("{} {} {}".format(cid, c[0], level.upper()))
         else:
             print("{} {}".format(cid, c[0]))
         print("{}/contest/{}".format(_http.CF_DOMAIN, cid))
@@ -167,12 +167,12 @@ def count_contests(contests):
 
 def parse_list(raw_contests, upcoming=0, write_db=True):
     cur = db.cursor()
-    last_contest = cur.execute('''SELECT cid, start FROM codeforces WHERE upcoming = 0 ORDER BY start DESC;''').fetchone()
+#    last_contest = cur.execute('''SELECT cid, start FROM codeforces WHERE upcoming = 0 ORDER BY start DESC;''').fetchone()
     contests = {}
-    page_overlapped = False
+#    page_overlapped = False
     for c in raw_contests.find_all("tr", {"data-contestid": True}):
         cid = int(c['data-contestid'])
-        if last_contest and last_contest[0] == cid: page_overlapped = True
+#        if last_contest and last_contest[0] == cid: page_overlapped = True
         td = c.find_all("td")
 #           urls = [h.extract()['href'] for h in td[0].find_all('a', href=True)]
         title = td[0].text.lstrip().splitlines()[0]
@@ -189,7 +189,7 @@ def parse_list(raw_contests, upcoming=0, write_db=True):
         if write_db:
             cur.execute('INSERT or REPLACE INTO codeforces (cid, title, authors, start, length, participants, upcoming) VALUES (?, ?, ?, ?, ?, ?, ?)', (cid, title, json.dumps(authors), start, length, participants, upcoming))
     if write_db: db.commit()
-    return page_overlapped
+#    return page_overlapped
 
 def parse_div(title):
     r = []
@@ -320,31 +320,38 @@ def list_contest(args, upcoming=False):
     last_modified = int(cur.execute('''SELECT strftime('%s', last_modified) FROM modifications WHERE site = 'codeforces';''').fetchone()[0])
     now = int(time())
     row_count = cur.execute('''SELECT COUNT(*) FROM codeforces''').fetchone()[0]
-    if now - last_modified > 24 * 3600 or row_count == 0:
+#    if now - last_modified > 24 * 3600 * 7 or row_count == 0:
+    if row_count == 0:
         update = True
+    else:
+        contests = cur.execute('''SELECT start, length FROM codeforces WHERE upcoming = 1 ORDER BY start;''')
+        for start, length in contests:
+            duration = timedelta(hours=int(length.split(':')[0])+1, minutes=int(length.split(':')[1]))
+            contest_end = (datetime.strptime(start, '%Y-%m-%d %H:%M:%S%z').astimezone(tz=None) + duration)
+            now = datetime.now().astimezone(tz=None)
+            if contest_end < now:
+                update = True
+
+    if ('solved' in args and args.solved) or not path.isfile(config.solved_path):
+        solved_json = get_solved_count()
+    else:
+        with open(config.solved_path, 'r') as f:
+            solved_json = json.load(f)
 
     if update:
         print('[+] Update contests list')
-        urls = [_http.POST("/data/contests", _http.getsolved_data, csrf=True)]
+        urls = []
         for page in range(1, conf['max_page']+1):
             urls += [_http.GET('/contests/page/{:d}'.format(page))]
         pages = _http.urlsopen(urls)
-        solved_json = json.loads(pages[0])
-        open(config.solved_path, 'w').write(pages[0])
-        for page in pages[1:]:
+        for page in pages:
             bs = BeautifulSoup(page, 'html.parser')
             table = bs.find_all("div", {"class": "datatable"})
             if count_contests(table[1]) == 0:
                 print("[!] Contest is running")
                 break
             parse_list(table[0], upcoming=1, write_db=True)
-            if parse_list(table[1], write_db=True): break
-
-    if not args.solved and path.isfile(config.solved_path):
-        with open(config.solved_path, 'r') as f:
-            solved_json = json.load(f)
-    else:
-        solved_json = get_solved_count()
+            parse_list(table[1], write_db=True)
 
     if upcoming:
         print("[+] Current or upcoming contests")
