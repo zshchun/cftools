@@ -2,8 +2,7 @@
 import json
 import logging
 import re
-from random import choice
-from getpass import getpass
+from . import util
 from . import _http
 from . import config
 from .color import setcolor
@@ -11,7 +10,7 @@ from .config import conf, db
 from time import time
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
-from os import path, listdir, system, getcwd, sep
+from os import path, listdir, system
 from sys import argv, exit
 from operator import itemgetter
 
@@ -32,11 +31,7 @@ def view_submission(sid, prefix=''):
         system(conf["pager"] + ' "' + source_path + '"')
 
 def get_solutions(args):
-    if args.cid and args.cid: 
-        cid = int(args.cid)
-        level = args.level
-    else:
-        cid, level = get_cwd_info()
+    cid, level = util.guess_cid(args)
     if not cid or not level:
         print("[!] Invalid contestID or level")
         return
@@ -78,9 +73,7 @@ def get_solutions(args):
             r = view_submission(sid, str(cid)+level)
 
 def search_editorial(args):
-    cid = args.cid
-    if not cid:
-        cid, _ = get_cwd_info()
+    cid, _ = util.guess_cid(args)
     contest_info = get_contest_info(cid)
     if not cid or not contest_info:
         print("[!] Invalid contestID")
@@ -108,19 +101,6 @@ def search_editorial(args):
         if 'open_in_browser' in conf and conf['open_in_browser'] == True:
             system('''{} "{}"'''.format(conf['browser'], p['url']))
 
-def get_cwd_info():
-    p = path.normpath(getcwd()).split(sep)
-    if len(p) >= 2 and p[-2].isnumeric() and re.match(r"[a-z]", p[-1]):
-        cid = int(p[-2])
-        level = p[-1]
-    elif len(p) >= 1 and p[-1].isnumeric():
-        cid = int(p[-1])
-        level = None
-    else:
-        cid = None
-        level = None
-    return cid, level
-
 def get_contest_info(cid):
     if cid:
         cur = db.cursor()
@@ -129,11 +109,7 @@ def get_contest_info(cid):
         return []
 
 def show_contest_info(args):
-    if args.cid: 
-        cid = int(args.cid)
-        level = args.level
-    else:
-        cid, level = get_cwd_info()
+    cid, level = util.guess_cid(args)
     if cid:
         c = get_contest_info(cid)
         if not c:
@@ -149,11 +125,7 @@ def show_contest_info(args):
         print("[!] ContestID is empty")
 
 def open_url(args):
-    if args.cid:
-        cid = int(args.cid)
-        level = None
-    else:
-        cid, level = get_cwd_info()
+    cid, level = util.guess_cid(args)
     if not cid: return
     problems_url = "{}/contest/{}/problems".format(_http.CF_DOMAIN, cid)
     contest_url = "{}/contest/{}".format(_http.CF_DOMAIN, cid)
@@ -202,7 +174,6 @@ def parse_div(title):
     return r
 
 def solved_problems():
-    # TODO support directory hierachy. ex) 1600/a.cpp
     ret = {}
     for fn in listdir(path.expanduser(conf['solved_dir'])):
         t = path.splitext(fn)
@@ -218,44 +189,9 @@ def solved_problems():
                 ret[cid].append(level)
     return ret
 
-def check_login(html_data):
-    bs = BeautifulSoup(html_data, 'html.parser')
-    titled = bs.find('div', {'class':'caption titled'}).text.strip()
-    if titled == 'Login into Codeforces':
-        return False
-    else:
-        return True
-
-def login(args):
-    print('[+] Login account')
-    login_url = _http.CF_DOMAIN + "/enter?back=%2F"
-    handle = input("Input handle or email: ")
-    passwd = getpass()
-    html_data = _http.get(login_url)
-    bs = BeautifulSoup(html_data, 'html.parser')
-    csrf_token = bs.find("span", {"class": "csrf-token", 'data-csrf':True})['data-csrf']
-    assert len(csrf_token) == 32, "Invalid CSRF token"
-    ftaa = ''.join([choice('abcdefghijklmnopqrstuvwxyz0123456789') for x in range(18)])
-# bfaa : Fingerprint2.x64hash128
-    bfaa = ''.join([choice('0123456789abcdef') for x in range(32)])
-    login_data = {
-        'csrf_token': csrf_token,
-        'action': 'enter',
-        'ftaa': ftaa,
-        'bfaa': bfaa,
-        'handleOrEmail': handle,
-        'password': passwd,
-        'remember': 'on',
-    }
-    _http.update_csrf(csrf_token)
-    html_data = _http.post(login_url, login_data)
-    if check_login(html_data):
-        print("[+] Login successful")
-    else:
-        print("[!] Login failed")
-
 def get_solved_count():
-    solved_string = _http.post("/data/contests", _http.getsolved_data, csrf=True)
+    getsolved_data = { 'action':'getSolvedProblemCountsByContest' }
+    solved_string = _http.post("/data/contests", getsolved_data, csrf=True)
     solved_json = json.loads(solved_string)
     open(config.solved_path, 'w').write(solved_string)
     return solved_json

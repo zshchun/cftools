@@ -49,6 +49,11 @@ $ cf editorial
 $ cf solution
 ```
 
+## Submit source code
+```
+$ cf submit
+```
+
 ## Open contest link
 ```
 $ cf open 1698
@@ -56,13 +61,13 @@ $ cf open 1698
 
 # TODO
 - [x] Search editorial link
-- [ ] Submit submission
-- [ ] Current contest countdown
+- [x] Submit submission
+- [ ] Race contest
 - [ ] Support user-agent
 - [x] Support cookies
 - [ ] Support RCPC token
 - [x] Support pip
-- [ ] Color interface
+- [x] Color interface
 - [ ] Show streak stats
 - [ ] Clear databases/cache
 - [ ] Support multiplatform

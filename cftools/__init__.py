@@ -2,4 +2,4 @@ from . import config, _http, contest
 from os import path
 
 __all__ = ['contest', 'config', '_http']
-__version__ = "0.3.2"
+__version__ = "0.4.0"
