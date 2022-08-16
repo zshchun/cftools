@@ -39,6 +39,14 @@ def main():
     _open.add_argument('level', metavar='problem level', nargs='?', action='store', type=str)
     _open.set_defaults(func=contest.open_url)
 
+    _parse = subparsers.add_parser('parse', aliases=['p'], help="Parse problems of a contest")
+    _parse.add_argument('cid', metavar='contestID', action='store', type=int)
+    _parse.set_defaults(func=problem.parse)
+
+    _race = subparsers.add_parser('race', aliases=['r'], help="Race a contest")
+    _race.add_argument('cid', metavar='contestID', action='store', type=int)
+    _race.set_defaults(func=contest.race)
+
     _submit = subparsers.add_parser('submit', aliases=['s'], help="Submit a solution file")
     _submit.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
     _submit.add_argument('level', metavar='level', nargs='?', action='store', type=str)

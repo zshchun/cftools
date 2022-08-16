@@ -6,7 +6,7 @@ import aiohttp
 import gzip
 import json
 
-CF_DOMAIN = 'https://codeforces.com'
+CF_HOST = 'https://codeforces.com'
 default_headers = {
     'Accept': '*/*',
     'Accept-Encoding': 'gzip',
@@ -63,7 +63,7 @@ async def async_get(session, url, headers=None, csrf=False):
     if headers == None: headers = default_headers
     if csrf and 'csrf' in tokens:
         headers = add_header({'X-Csrf-Token': tokens['csrf']})
-    if url.startswith('/'): url = CF_DOMAIN + url
+    if url.startswith('/'): url = CF_HOST + url
     result = None
     async with session.get(url, headers=headers) as response:
         cookies.save(file_path=config.cookies_path)
@@ -73,7 +73,7 @@ async def async_post(session, url, data, headers=None, csrf=False):
     if headers == None: headers = default_headers
     if csrf and 'csrf' in tokens:
         headers = add_header({'X-Csrf-Token': tokens['csrf']})
-    if url.startswith('/'): url = CF_DOMAIN + url
+    if url.startswith('/'): url = CF_HOST + url
     result = None
     async with session.post(url, headers=headers, data=data) as response:
         cookies.save(file_path=config.cookies_path)

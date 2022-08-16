@@ -54,6 +54,16 @@ $ cf solution
 $ cf submit
 ```
 
+## Race a contest
+```
+$ cf race 1698
+```
+
+## Parse problems
+```
+$ cf parse 1698
+```
+
 ## Open contest link
 ```
 $ cf open 1698
@@ -62,7 +72,7 @@ $ cf open 1698
 # TODO
 - [x] Search editorial link
 - [x] Submit submission
-- [ ] Race contest
+- [x] Race contest
 - [ ] Support user-agent
 - [x] Support cookies
 - [ ] Support RCPC token

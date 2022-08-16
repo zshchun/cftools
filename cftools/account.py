@@ -25,7 +25,7 @@ def extract_channel(html_data):
 
 def login(args):
     print('[+] Login account')
-    login_url = _http.CF_DOMAIN + "/enter?back=%2F"
+    login_url = "/enter?back=%2F"
     handle = input("Input handle or email: ")
     passwd = getpass()
     html_data = _http.get(login_url)

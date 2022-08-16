@@ -2,9 +2,10 @@ from . import util
 from . import _http
 from . import _ws
 from . import color
-from .contest import get_solved_count
+from . import config
+from . import contest
 from time import time, sleep
-from os import listdir, path
+from os import listdir, path, sep, makedirs
 from bs4 import BeautifulSoup
 from .config import conf
 
@@ -73,4 +74,79 @@ def submit(args):
             puts("[+] Test Cases {}/{}, {} ms, {} KB".format(passed, testcases, ms, mem//1024))
         if update:
             sleep(0.5)
-            get_solved_count()
+            contest.get_solved_count()
+
+def extract_testcases(tags):
+    ret = []
+    for i in tags:
+        i.find('div', {'class':"title"}).decompose()
+        divs = i.find_all('div', {'class':True})
+        if len(divs) == 0:
+            ret.append([i.text.lstrip()])
+        else:
+            prev = ''
+            l = ''
+            lines = []
+#            print('divs', len(divs))
+            for d in divs:
+                if prev == '':
+                    l += d.text + '\n'
+                    prev = d['class']
+                elif d['class'] == prev:
+                    l += (d.text + '\n')
+                else:
+                    lines.append(l)
+                    prev = d['class']
+                    l = d.text + '\n'
+            if l: lines.append(l)
+            ret.append(lines)
+    return ret
+
+def parse(args):
+    if 'cid' in args and args.cid:
+        cid = int(args.cid)
+    else:
+        print("[!] Invalid contestID")
+        return
+    url = "/contest/{}/problems".format(cid)
+    resp = _http.get(url)
+    base_dir = path.expanduser(config.conf['contest_dir'] + sep + str(cid))
+    makedirs(base_dir, exist_ok=True)
+    bs = BeautifulSoup(resp, 'html.parser')
+    probs = bs.find_all('div', {'class':'problemindexholder', 'problemindex':True})
+    for p in probs:
+        alert = p.find('div', {'class':'alert'})
+        level = p['problemindex']
+        typo = p.find('div', {'class':'ttypography'})
+        title = typo.find('div', {'class':'title'}).extract().text
+        time_limit = typo.find('div', {'class':'time-limit'}).div.next.next.replace(' seconds', 's').replace(' second', 's')
+        memory_limit = typo.find('div', {'class':'memory-limit'}).div.next.next.replace(' megabytes', 'MB')
+        desc = typo.find('div', {'class':False}).get_text()
+        in_spec = typo.find('div', {'class':'input-specification'})
+        in_spec.find('div', {'class':"section-title"}).decompose()
+        in_spec = in_spec.get_text()
+        out_spec = typo.find('div', {'class':'output-specification'})
+        out_spec.find('div', {'class':"section-title"}).decompose()
+        out_spec = out_spec.get_text()
+        ins = extract_testcases(typo.find_all('div', {'class':'input'}))
+        outs = extract_testcases(typo.find_all('div', {'class':'output'}))
+        note = typo.find('div', {'class':'note'})
+        color.green('[+] ' + title)
+        print('Limit: {} {}'.format(time_limit, memory_limit))
+        print('DESC:', desc)
+        print('INPUT SPEC:', in_spec)
+        print('OUTPUT SPEC:', out_spec)
+        print('INPUTS:' , ins)
+        print('OUTPUTS:' , outs)
+        if note:
+            note.find('div', {'class':"section-title"}).decompose()
+            note = note.text
+            print('NOTE:', note)
+        for i in ins:
+            prob_dir = base_dir + sep + level.lower()
+            makedirs(prob_dir, exist_ok=True)
+            for j in range(len(ins)):
+                fi = open(prob_dir+sep+'in'+str(j+1)+'.txt', 'w')
+                fo = open(prob_dir+sep+'ans'+str(j+1)+'.txt', 'w')
+                for k in ins[j]: fi.write(k)
+                for k in outs[j]: fo.write(k)

@@ -5,9 +5,10 @@ import re
 from . import util
 from . import _http
 from . import config
-from .color import setcolor
+from . import color
+from . import problem
 from .config import conf, db
-from time import time
+from time import time, sleep
 from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
 from os import path, listdir, system
@@ -55,20 +56,20 @@ def get_solutions(args):
     for t in tr:
         td = t.find_all("td")
         assert len(td) > 6, "not enough td tags"
-#        url = _http.CF_DOMAIN + td[0].find('a', href=True)['href']
         sid = td[0].text.strip()
         when = datetime.strptime(td[1].find('span').text, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk).astimezone(tz=None).strftime('%y-%m-%d %H:%M')
         a = td[2].find('a', href=True)
-#           TODO user color who['class']
         who = {'profile':a['href'],'class':a['class'][1],'title':a['title'],'name':a.text}
+        c = who['class'].split('-')[1]
+        name = color.setcolor(c, who['name'].ljust(20))
         problem = td[3].text.strip()
         lang = td[4].text.strip()
         verdict = td[5].text.strip()
         ms = td[6].text.strip()
         mem = td[7].text.strip()
         assert verdict == 'Accepted', 'submission was not accepted'
-        print(sid, when, problem, who['name'], lang, ms, mem)
-        choice = input("View this solution? [Y/n]").lower()
+        print("{:9s} {} {} {:<15s} {:>7s} {:>8s} ".format(sid, problem, name, lang, ms, mem), end='')
+        choice = input("View? [Y/n] ").lower()
         if choice == "yes" or choice == 'y' or choice == '':
             r = view_submission(sid, str(cid)+level)
 
@@ -90,7 +91,7 @@ def search_editorial(args):
         page_title = div.a.text.strip()
         if page_title.lower().find('editorial') == -1: continue
 
-        page_url = _http.CF_DOMAIN + div.find('a', href=True)['href']
+        page_url = _http.CF_HOST + div.find('a', href=True)['href']
         words = [t.lower() for t in page_title.split()]
         matches = sum(w in finding_words for w in words)
         posts += [{'title':page_title, 'url':page_url, 'match':matches}]
@@ -104,7 +105,7 @@ def search_editorial(args):
 def get_contest_info(cid):
     if cid:
         cur = db.cursor()
-        return cur.execute(f'''SELECT title, authors, start, length, participants FROM codeforces WHERE cid = {cid};''').fetchone()
+        return cur.execute(f'''SELECT title, authors, start, length, participants, upcoming FROM codeforces WHERE cid = {cid};''').fetchone()
     else:
         return []
 
@@ -120,15 +121,15 @@ def show_contest_info(args):
             print("{} {} {}".format(cid, c[0], level.upper()))
         else:
             print("{} {}".format(cid, c[0]))
-        print("{}/contest/{}".format(_http.CF_DOMAIN, cid))
+        print("{}/contest/{}".format(_http.CF_HOST, cid))
     else:
         print("[!] ContestID is empty")
 
 def open_url(args):
     cid, level = util.guess_cid(args)
     if not cid: return
-    problems_url = "{}/contest/{}/problems".format(_http.CF_DOMAIN, cid)
-    contest_url = "{}/contest/{}".format(_http.CF_DOMAIN, cid)
+    problems_url = "{}/contest/{}/problems".format(_http.CF_HOST, cid)
+    contest_url = "{}/contest/{}".format(_http.CF_HOST, cid)
     print("[+] Open", contest_url)
     print("[+] Open", problems_url)
     if 'open_in_browser' in conf and conf['open_in_browser'] == True:
@@ -200,7 +201,7 @@ def show_contests(contests, check_solved=False, upcoming=False, solved_json=None
     total_contests = 0;
     solved_contests = 0
     for c in contests:
-        color = ''
+        puts = print
         total_contests += 1
         cid = c[0]
         title = c[1]
@@ -235,14 +236,17 @@ def show_contests(contests, check_solved=False, upcoming=False, solved_json=None
             solved_str = "{:d}/{:d} ".format(solved_cnt, prob_cnt)
             if len(div) > 0 and solved_cnt > 0 and (solved_cnt == prob_cnt or solved_cnt >= conf['contest_goals'][div[-1]]):
                 solved_contests += 1
-                color = 'green'
+                if conf['hide_solved_contest']:
+                    puts = lambda *args: None
+                else:
+                    puts = color.green
+
         elif solved_json:
             solved_str = "    "
         else:
             solved_str = ""
         contest_info = "{:04d} {:<3} {}{:<{width}} {} ({}){}{}{}".format(cid, div, solved_str, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, weekday, countdown, participants, width=conf['title_width'])
-        contest_info = setcolor(color, contest_info)
-        print(contest_info)
+        puts(contest_info)
     if check_solved:
         print("[+] Solved {:d}/{:d} contests".format(solved_contests, total_contests))
 
@@ -303,3 +307,33 @@ def list_past_contest(args):
 
 def list_upcoming(args):
     list_contest(args, upcoming=True)
+
+def race(args):
+    if 'cid' in args and args.cid:
+        cid = int(args.cid)
+    else:
+        print("[!] Invalid contestID")
+        return
+    c = get_contest_info(cid)
+    if not c:
+        print("[!] Contest not found")
+        return
+    if not c[5]:
+        print("[!] {} {} is not upcoming contest".format(cid, c[0]))
+        return
+    start = datetime.strptime(c[2], '%Y-%m-%d %H:%M:%S%z').astimezone(tz=None)
+    now = datetime.now().astimezone(tz=None)
+    if now > start:
+        print("[!] {} {} is past contest".format(cid, c[0]))
+        return
+    print()
+    while now < start:
+        delta = int((start-now).total_seconds())
+        h = delta // 3600
+        m = delta // 60 % 60
+        s = delta % 60
+        fmt = color.setcolor('green', " {:d}:{:02d}:{:02d}".format(h, m, s))
+        color.redraw(fmt)
+        sleep(0.2)
+        now = datetime.now().astimezone(tz=None)
+    problem.race(args)

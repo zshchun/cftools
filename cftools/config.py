@@ -4,15 +4,16 @@ from os import makedirs, path, environ
 from datetime import timezone, timedelta
 
 DEFAULT_CONFIG = {
-    'solved_dir': '~/codeforces',
-    'cache_dir': '~/codeforces/cache',
-    'database': '~/codeforces/cache.db',
+    'contest_dir': '~/codeforces',
+    'cache_dir': '~/.cf/cache',
+    'database': '~/.cf/cache.db',
     'title_width': 40,
     'max_page': 3,
     'open_in_browser': True,
     'browser': 'google-chrome',
     'pager': 'less',
     'prog_id': 61,
+    'hide_solved_contest': False,
     'lang': [
         {'ext': "cpp", 'cmd': "g++ -O2", },
         {'ext': "py", 'cmd': "python3", },
@@ -78,7 +79,7 @@ def loads():
         conf = tomli.load(open(config_path, "rb"))
     else:
         conf = DEFAULT_CONFIG
-    for d in [base_dir, conf['solved_dir'], conf['cache_dir']]:
+    for d in [base_dir, conf['contest_dir'], conf['cache_dir']]:
         if not path.isdir(path.expanduser(d)):
             makedirs(path.expanduser(d))
     db_path = path.expanduser(conf['database'])
