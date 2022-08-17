@@ -4,9 +4,9 @@ import asyncio
 import websockets
 from concurrent.futures import TimeoutError
 
-async def _recv(url):
+async def message_receiver(url, callback):
     async with websockets.connect(url) as ws:
-        timeout = 5
+        timeout = 10
         msg = ""
         try:
             finished = 2
@@ -17,10 +17,7 @@ async def _recv(url):
                 js['text'] = json.loads(js['text'])
                 ret += [js]
                 finished = js['text']['d'][17]
-            return ret
+            await callback(ret)
         except TimeoutError as e:
             if len(msg) == 0:
                 print("[!] Timeout")
-
-def recv(url):
-    return asyncio.run(_recv(url))

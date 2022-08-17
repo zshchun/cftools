@@ -8,8 +8,12 @@ from time import time, sleep
 from os import listdir, path, sep, makedirs
 from bs4 import BeautifulSoup
 from .config import conf
+import asyncio
 
 def submit(args):
+    return asyncio.run(_submit(args))
+
+async def _submit(args):
     cid, level = util.guess_cid(args)
     if not cid or not level:
         print("[!] Invalid contestID or level")
@@ -34,47 +38,50 @@ def submit(args):
 
     epoch = int(time() * 1000)
     tokens = _http.get_tokens()
+    ws_url = "wss://pubsub.codeforces.com/ws/{}/{}?_={}&tag=&time=&eventid=".format(tokens['uc'], tokens['usmc'], epoch)
+    task = asyncio.create_task(_ws.message_receiver(ws_url, display_submit_result))
     url = '/contest/{}/problem/{}?csrf_token={}'.format(cid, level.upper(), tokens['csrf'])
-    resp = _http.post_source(url, filename, level.upper())
+    resp = await _http.async_post_source(url, filename, level.upper())
     bs = BeautifulSoup(resp, 'html.parser')
     err = bs.find("span", {"class": "error"})
     if err and err.text == 'You have submitted exactly the same code before':
         print("[!] You have submitted exactly the same code before")
-    else:
-        ws_url = "wss://pubsub.codeforces.com/ws/{}/{}?_={}&tag=&time=&eventid=".format(tokens['uc'], tokens['usmc'], epoch)
-        resp = _ws.recv(ws_url)
-        update = False
-        submits = []
-        for r in resp:
-            d = r['text']['d']
-            submit_id = d[1]
-            if submit_id in submits:
-                continue
-            submits.append(submit_id)
-            cid = d[2]
-            title = d[4] # "TESTS"
-            msg = d[6]
-            passed = d[7]
-            testcases = d[8]
-            ms = d[9]
-            mem = d[10]
-            date1 = d[13]
-            date2 = d[14]
-            lang_id = d[16]
-            if msg == "OK":
-                puts = color.green
-                msg = 'Accepted'
-                update = True
-            elif msg == "WRONG_ANSWER":
-                msg = 'Wrong Answer'
-                puts = color.red
-            else:
-                puts = print
-            puts("[+] [{}] {}".format(cid, msg))
-            puts("[+] Test Cases {}/{}, {} ms, {} KB".format(passed, testcases, ms, mem//1024))
-        if update:
-            sleep(0.5)
-            contest.get_solved_count()
+        return
+    await task
+
+async def display_submit_result(result):
+    update = False
+    submits = []
+    for r in result:
+        d = r['text']['d']
+        submit_id = d[1]
+        if submit_id in submits:
+            continue
+        submits.append(submit_id)
+        cid = d[2]
+        title = d[4] # "TESTS"
+        msg = d[6]
+        passed = d[7]
+        testcases = d[8]
+        ms = d[9]
+        mem = d[10]
+        date1 = d[13]
+        date2 = d[14]
+        lang_id = d[16]
+        if msg == "OK":
+            puts = color.green
+            msg = 'Accepted'
+            update = True
+        elif msg == "WRONG_ANSWER":
+            msg = 'Wrong Answer'
+            puts = color.red
+        else:
+            puts = print
+        puts("[+] [{}] {}".format(cid, msg))
+        puts("[+] Test Cases {}/{}, {} ms, {} KB".format(passed, testcases, ms, mem//1024))
+    if update:
+        asyncio.sleep(0.5)
+        contest.get_solved_count()
 
 def extract_testcases(tags):
     ret = []

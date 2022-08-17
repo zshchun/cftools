@@ -21,20 +21,20 @@ def add_header(newhdr, headers=default_headers):
     return headers
 
 def get(url, headers=None, csrf=False):
-    resp = asyncio.run(_urlsopen([GET(url, headers, csrf)]))
+    resp = asyncio.run(async_urlsopen([GET(url, headers, csrf)]))
     if resp:
         return resp[0]
     else:
         return None
 
 def post(url, data, headers=None, csrf=False):
-    resp = asyncio.run(_urlsopen([POST(url, data, headers, csrf)]))
+    resp = asyncio.run(async_urlsopen([POST(url, data, headers, csrf)]))
     if resp:
         return resp[0]
     else:
         return None
 
-def post_source(url, filename, level, headers=None, csrf=False):
+async def async_post_source(url, filename, level, headers=None, csrf=False):
     info = {
         'csrf_token': tokens['csrf'],
         'ftaa': tokens['ftaa'],
@@ -47,7 +47,7 @@ def post_source(url, filename, level, headers=None, csrf=False):
     for k, v in info.items():
         form.add_field(k, v)
     form.add_field('sourceFile', open(filename, 'rb'), filename=filename)
-    resp = asyncio.run(_urlsopen([POST(url, form, headers, csrf)]))
+    resp = await async_urlsopen([POST(url, form, headers, csrf)])
     if resp:
         return resp[0]
     else:
@@ -80,9 +80,9 @@ async def async_post(session, url, data, headers=None, csrf=False):
         return await response.text()
 
 def urlsopen(urls):
-    return asyncio.run(_urlsopen(urls))
+    return asyncio.run(async_urlsopen(urls))
 
-async def _urlsopen(urls):
+async def async_urlsopen(urls):
     async with aiohttp.ClientSession(cookie_jar=cookies) as session:
         tasks = []
         for u in urls:

@@ -83,4 +83,5 @@ $ cf open 1698
 - [ ] Support multiplatform
 - [ ] Support languages
 - [ ] Problem parser
+- [ ] Editorial link
 - [x] Login
