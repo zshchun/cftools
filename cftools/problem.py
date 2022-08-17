@@ -82,23 +82,19 @@ def extract_testcases(tags):
         i.find('div', {'class':"title"}).decompose()
         divs = i.find_all('div', {'class':True})
         if len(divs) == 0:
-            ret.append([i.text.lstrip()])
+            ret.append([i.text.strip()+'\n'])
         else:
-            prev = ''
             l = ''
+            prev = divs[0]['class']
             lines = []
-#            print('divs', len(divs))
             for d in divs:
-                if prev == '':
+                if d['class'] == prev:
                     l += d.text + '\n'
-                    prev = d['class']
-                elif d['class'] == prev:
-                    l += (d.text + '\n')
                 else:
                     lines.append(l)
                     prev = d['class']
                     l = d.text + '\n'
-            if l: lines.append(l)
+            if l: lines.append(l.strip()+'\n')
             ret.append(lines)
     return ret
 
