@@ -2,10 +2,11 @@
 import json
 import logging
 import re
+import asyncio
 from . import util
 from . import _http
 from . import config
-from . import color
+from . import ui
 from . import problem
 from .config import conf, db
 from time import time, sleep
@@ -15,12 +16,12 @@ from os import path, listdir, system
 from sys import argv, exit
 from operator import itemgetter
 
-def view_submission(sid, prefix=''):
+async def async_view_submission(sid, prefix=''):
     json_path = "{}/{}-{}.json".format(path.expanduser(conf['cache_dir']), prefix, sid)
     if path.isfile(json_path):
         res = open(json_path, 'r').read()
     else:
-        res = _http.post("/data/submitSource", { 'submissionId':sid })
+        res = await _http.async_post("/data/submitSource", { 'submissionId':sid })
         open(json_path, 'w').write(res)
     print("[+] Cached:", json_path)
     js = json.loads(res)
@@ -32,6 +33,9 @@ def view_submission(sid, prefix=''):
         system(conf["pager"] + ' "' + source_path + '"')
 
 def get_solutions(args):
+    asyncio.run(async_get_solutions(args))
+
+async def async_get_solutions(args):
     cid, level = util.guess_cid(args)
     if not cid or not level:
         print("[!] Invalid contestID or level")
@@ -47,33 +51,40 @@ def get_solutions(args):
 #        order = 'BY_JUDGED_DESC'
     order = 'BY_ARRIVED_ASC'
     page = 1
+    await _http.open_session()
     url = "/contest/{}/status/page/{}?order={}".format(cid, page, order)
-    res = _http.post(url, post_data)
-    bs = BeautifulSoup(res, 'html.parser')
-    table = bs.find("table", {"class": "status-frame-datatable"})
-    tr = table.find_all("tr", {"data-submission-id": True})
-    assert len(tr) > 0, "empty tr tag"
-    for t in tr:
-        td = t.find_all("td")
-        assert len(td) > 6, "not enough td tags"
-        sid = td[0].text.strip()
-        when = datetime.strptime(td[1].find('span').text, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk).astimezone(tz=None).strftime('%y-%m-%d %H:%M')
-        a = td[2].find('a', href=True)
-        who = {'profile':a['href'],'class':a['class'][1],'title':a['title'],'name':a.text}
-        c = who['class'].split('-')[1]
-        name = color.setcolor(c, who['name'].ljust(20))
-        problem = td[3].text.strip()
-        lang = td[4].text.strip()
-        verdict = td[5].text.strip()
-        ms = td[6].text.strip()
-        mem = td[7].text.strip()
-        assert verdict == 'Accepted', 'submission was not accepted'
-        print("{:9s} {} {} {:<15s} {:>7s} {:>8s} ".format(sid, problem, name, lang, ms, mem), end='')
-        choice = input("View? [Y/n] ").lower()
-        if choice == "yes" or choice == 'y' or choice == '':
-            r = view_submission(sid, str(cid)+level)
+    try:
+        res = await _http.async_post(url, post_data)
+        bs = BeautifulSoup(res, 'html.parser')
+        table = bs.find("table", {"class": "status-frame-datatable"})
+        tr = table.find_all("tr", {"data-submission-id": True})
+        assert len(tr) > 0, "empty tr tag"
+        for t in tr:
+            td = t.find_all("td")
+            assert len(td) > 6, "not enough td tags"
+            sid = td[0].text.strip()
+            when = datetime.strptime(td[1].find('span').text, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk).astimezone(tz=None).strftime('%y-%m-%d %H:%M')
+            a = td[2].find('a', href=True)
+            who = {'profile':a['href'],'class':a['class'][1],'title':a['title'],'name':a.text}
+            c = who['class'].split('-')[1]
+            name = ui.setcolor(c, who['name'].ljust(20))
+            problem = td[3].text.strip()
+            lang = td[4].text.strip()
+            verdict = td[5].text.strip()
+            ms = td[6].text.strip()
+            mem = td[7].text.strip()
+            assert verdict == 'Accepted', 'submission was not accepted'
+            print("{:9s} {} {} {:<15s} {:>7s} {:>8s} ".format(sid, problem, name, lang, ms, mem), end='')
+            choice = input("View? [Y/n] ").lower()
+            if choice == "yes" or choice == 'y' or choice == '':
+                r = await async_view_submission(sid, str(cid)+level)
+    finally:
+        await _http.close_session()
 
 def search_editorial(args):
+    asyncio.run(async_search_editorial(args))
+
+async def async_search_editorial(args):
     cid, _ = util.guess_cid(args)
     contest_info = get_contest_info(cid)
     if not cid or not contest_info:
@@ -81,7 +92,11 @@ def search_editorial(args):
         return
     title = re.sub(r' ?\([^)]*\)', '', contest_info[0])
     print("[+] Searching for", title, "editorial")
-    res = _http.post('/search', {'query': title + ' editorial' })
+    await _http.open_session()
+    try:
+        res = await _http.async_post('/search', {'query': title + ' editorial' })
+    finally:
+        await _http.close_session()
     bs = BeautifulSoup(res, 'html.parser')
     topics = bs.find_all("div", {"class": "topic"})
     finding_words = [t.lower() for t in title.split()] + ['editorial']
@@ -190,9 +205,9 @@ def solved_problems():
                 ret[cid].append(level)
     return ret
 
-def get_solved_count():
+async def async_get_solved_count():
     getsolved_data = { 'action':'getSolvedProblemCountsByContest' }
-    solved_string = _http.post("/data/contests", getsolved_data, csrf=True)
+    solved_string = await _http.async_post("/data/contests", getsolved_data, csrf=True)
     solved_json = json.loads(solved_string)
     open(config.solved_path, 'w').write(solved_string)
     return solved_json
@@ -239,7 +254,7 @@ def show_contests(contests, check_solved=False, upcoming=False, solved_json=None
                 if conf['hide_solved_contest']:
                     puts = lambda *args: None
                 else:
-                    puts = color.green
+                    puts = ui.green
 
         elif solved_json:
             solved_str = "    "
@@ -251,6 +266,9 @@ def show_contests(contests, check_solved=False, upcoming=False, solved_json=None
         print("[+] Solved {:d}/{:d} contests".format(solved_contests, total_contests))
 
 def list_contest(args, upcoming=False):
+    asyncio.run(async_list_contest(args, upcoming))
+
+async def async_list_contest(args, upcoming=False):
     solved_json = None
     cur = db.cursor()
     if args.force:
@@ -272,8 +290,9 @@ def list_contest(args, upcoming=False):
             if contest_end < now:
                 update = True
 
+    await _http.open_session()
     if ('solved' in args and args.solved) or not path.isfile(config.solved_path):
-        solved_json = get_solved_count()
+        solved_json = await async_get_solved_count()
     else:
         with open(config.solved_path, 'r') as f:
             solved_json = json.load(f)
@@ -283,7 +302,7 @@ def list_contest(args, upcoming=False):
         urls = []
         for page in range(1, conf['max_page']+1):
             urls += [_http.GET('/contests/page/{:d}'.format(page))]
-        pages = _http.urlsopen(urls)
+        pages = await _http.async_urlsopen(urls)
         for page in pages:
             bs = BeautifulSoup(page, 'html.parser')
             table = bs.find_all("div", {"class": "datatable"})
@@ -292,6 +311,7 @@ def list_contest(args, upcoming=False):
                 break
             parse_list(table[0], upcoming=1, write_db=True)
             parse_list(table[1], write_db=True)
+    await _http.close_session()
 
     if upcoming:
         print("[+] Current or upcoming contests")
@@ -308,7 +328,7 @@ def list_past_contest(args):
 def list_upcoming(args):
     list_contest(args, upcoming=True)
 
-def race(args):
+def race_contest(args):
     if 'cid' in args and args.cid:
         cid = int(args.cid)
     else:
@@ -332,8 +352,8 @@ def race(args):
         h = delta // 3600
         m = delta // 60 % 60
         s = delta % 60
-        fmt = color.setcolor('green', " {:d}:{:02d}:{:02d}".format(h, m, s))
-        color.redraw(fmt)
+        fmt = ui.setcolor('green', " {:d}:{:02d}:{:02d}".format(h, m, s))
+        ui.redraw(fmt)
         sleep(0.2)
         now = datetime.now().astimezone(tz=None)
-    problem.race(args)
+    problem.parse_problems(args)

@@ -1,7 +1,7 @@
 from . import util
 from . import _http
 from . import _ws
-from . import color
+from . import ui
 from . import config
 from . import contest
 from time import time, sleep
@@ -39,15 +39,19 @@ async def _submit(args):
     epoch = int(time() * 1000)
     tokens = _http.get_tokens()
     ws_url = "wss://pubsub.codeforces.com/ws/{}/{}?_={}&tag=&time=&eventid=".format(tokens['uc'], tokens['usmc'], epoch)
-    task = asyncio.create_task(_ws.message_receiver(ws_url, display_submit_result))
-    url = '/contest/{}/problem/{}?csrf_token={}'.format(cid, level.upper(), tokens['csrf'])
-    resp = await _http.async_post_source(url, filename, level.upper())
-    bs = BeautifulSoup(resp, 'html.parser')
-    err = bs.find("span", {"class": "error"})
-    if err and err.text == 'You have submitted exactly the same code before':
-        print("[!] You have submitted exactly the same code before")
-        return
-    await task
+    await _http.open_session()
+    try:
+        task = asyncio.create_task(_ws.message_receiver(ws_url, display_submit_result))
+        url = '/contest/{}/problem/{}?csrf_token={}'.format(cid, level.upper(), tokens['csrf'])
+        resp = await _http.async_post_source(url, filename, level.upper())
+        bs = BeautifulSoup(resp, 'html.parser')
+        err = bs.find("span", {"class": "error"})
+        if err and err.text == 'You have submitted exactly the same code before':
+            print("[!] You have submitted exactly the same code before")
+            return
+        await task
+    finally:
+        await _http.close_session()
 
 async def display_submit_result(result):
     update = False
@@ -69,18 +73,18 @@ async def display_submit_result(result):
         date2 = d[14]
         lang_id = d[16]
         if msg == "OK":
-            puts = color.green
+            puts = ui.green
             msg = 'Accepted'
             update = True
         elif msg == "WRONG_ANSWER":
             msg = 'Wrong Answer'
-            puts = color.red
+            puts = ui.red
         else:
             puts = print
         puts("[+] [{}] {}".format(cid, msg))
         puts("[+] Test Cases {}/{}, {} ms, {} KB".format(passed, testcases, ms, mem//1024))
     if update:
-        asyncio.sleep(0.5)
+        await asyncio.sleep(0.5)
         contest.get_solved_count()
 
 def extract_testcases(tags):
@@ -105,14 +109,19 @@ def extract_testcases(tags):
             ret.append(lines)
     return ret
 
-def parse(args):
+def parse_problems(args):
+    asyncio.run(async_parse(args))
+
+async def async_parse_problems(args):
     if 'cid' in args and args.cid:
         cid = int(args.cid)
     else:
         print("[!] Invalid contestID")
         return
     url = "/contest/{}/problems".format(cid)
-    resp = _http.get(url)
+    await _http.open_session()
+    resp = await _http.async_get(url)
+    await _http.close_session()
     base_dir = path.expanduser(config.conf['contest_dir'] + sep + str(cid))
     makedirs(base_dir, exist_ok=True)
     bs = BeautifulSoup(resp, 'html.parser')
@@ -134,7 +143,7 @@ def parse(args):
         ins = extract_testcases(typo.find_all('div', {'class':'input'}))
         outs = extract_testcases(typo.find_all('div', {'class':'output'}))
         note = typo.find('div', {'class':'note'})
-        color.green('[+] ' + title)
+        ui.green('[+] ' + title)
         print('Limit: {} {}'.format(time_limit, memory_limit))
         print('DESC:', desc)
         print('INPUT SPEC:', in_spec)

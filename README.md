@@ -73,6 +73,8 @@ $ cf open 1698
 - [x] Search editorial link
 - [x] Submit submission
 - [x] Race contest
+- [ ] Local compile
+- [ ] Check testcase
 - [ ] Support user-agent
 - [x] Support cookies
 - [ ] Support RCPC token
@@ -84,4 +86,5 @@ $ cf open 1698
 - [ ] Support languages
 - [ ] Problem parser
 - [ ] Editorial link
+- [ ] Manual
 - [x] Login

@@ -59,7 +59,7 @@ def GET(url, headers=None, csrf=False):
 def POST(url, data, headers=None, csrf=False):
     return {'method':async_post, 'url':url, 'data':data, 'headers':headers, 'csrf':csrf}
 
-async def async_get(session, url, headers=None, csrf=False):
+async def async_get(url, headers=None, csrf=False):
     if headers == None: headers = default_headers
     if csrf and 'csrf' in tokens:
         headers = add_header({'X-Csrf-Token': tokens['csrf']})
@@ -69,7 +69,7 @@ async def async_get(session, url, headers=None, csrf=False):
         cookies.save(file_path=config.cookies_path)
         return await response.text()
 
-async def async_post(session, url, data, headers=None, csrf=False):
+async def async_post(url, data, headers=None, csrf=False):
     if headers == None: headers = default_headers
     if csrf and 'csrf' in tokens:
         headers = add_header({'X-Csrf-Token': tokens['csrf']})
@@ -83,14 +83,24 @@ def urlsopen(urls):
     return asyncio.run(async_urlsopen(urls))
 
 async def async_urlsopen(urls):
-    async with aiohttp.ClientSession(cookie_jar=cookies) as session:
-        tasks = []
-        for u in urls:
-            if u['method'] == async_get:
-                tasks += [async_get(session, u['url'], u['headers'], u['csrf'])]
-            elif u['method'] == async_post:
-                tasks += [async_post(session, u['url'], u['data'], u['headers'], u['csrf'])]
-        return await asyncio.gather(*tasks)
+#    async with aiohttp.ClientSession(cookie_jar=cookies) as session:
+    tasks = []
+    for u in urls:
+        if u['method'] == async_get:
+            tasks += [async_get(u['url'], u['headers'], u['csrf'])]
+        elif u['method'] == async_post:
+            tasks += [async_post(u['url'], u['data'], u['headers'], u['csrf'])]
+    return await asyncio.gather(*tasks)
+
+async def open_session():
+    global session
+    if session == None:
+        session = await aiohttp.ClientSession(cookie_jar=cookies).__aenter__()
+
+async def close_session():
+    global session
+    await session.__aexit__(None, None, None)
+    session = None
 
 def get_tokens():
     return tokens

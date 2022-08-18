@@ -1,7 +1,9 @@
 from . import _http
+from . import ui
 from random import choice
 from getpass import getpass
 from bs4 import BeautifulSoup
+import asyncio
 
 def check_login(html_data):
     bs = BeautifulSoup(html_data, 'html.parser')
@@ -24,11 +26,15 @@ def extract_channel(html_data):
     return uc, usmc, cc, pc
 
 def login(args):
+    asyncio.run(async_login(args))
+
+async def async_login(args):
     print('[+] Login account')
     login_url = "/enter?back=%2F"
     handle = input("Input handle or email: ")
     passwd = getpass()
-    html_data = _http.get(login_url)
+    await _http.open_session()
+    html_data = await _http.async_get(login_url)
     bs = BeautifulSoup(html_data, 'html.parser')
     csrf_token = bs.find("span", {"class": "csrf-token", 'data-csrf':True})['data-csrf']
     assert len(csrf_token) == 32, "Invalid CSRF token"
@@ -44,10 +50,11 @@ def login(args):
         'password': passwd,
         'remember': 'on',
     }
-    html_data = _http.post(login_url, login_data)
+    html_data = await _http.async_post(login_url, login_data)
+    await _http.close_session()
     if check_login(html_data):
-        print("[+] Login successful")
+        ui.green("[+] Login successful")
         uc, usmc, _, _ = extract_channel(html_data)
         _http.update_tokens(csrf_token, ftaa, bfaa, uc, usmc)
     else:
-        print("[!] Login failed")
+        ui.red("[!] Login failed")
