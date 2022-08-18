@@ -13,7 +13,7 @@ default_headers = {
 
 session = None
 tokens = {}
-cookies = None
+cookie_jar = None
 
 def add_header(newhdr, headers=default_headers):
     headers.update(newhdr)
@@ -65,7 +65,7 @@ async def async_get(url, headers=None, csrf=False):
     if url.startswith('/'): url = CF_HOST + url
     result = None
     async with session.get(url, headers=headers) as response:
-        cookies.save(file_path=config.cookies_path)
+        cookie_jar.save(file_path=config.cookie_jar)
         return await response.text()
 
 async def async_post(url, data, headers=None, csrf=False):
@@ -75,14 +75,14 @@ async def async_post(url, data, headers=None, csrf=False):
     if url.startswith('/'): url = CF_HOST + url
     result = None
     async with session.post(url, headers=headers, data=data) as response:
-        cookies.save(file_path=config.cookies_path)
+        cookie_jar.save(file_path=config.cookie_jar)
         return await response.text()
 
 def urlsopen(urls):
     return asyncio.run(async_urlsopen(urls))
 
 async def async_urlsopen(urls):
-#    async with aiohttp.ClientSession(cookie_jar=cookies) as session:
+#    async with aiohttp.ClientSession(cookie_jar=cookie_jar) as session:
     tasks = []
     for u in urls:
         if u['method'] == async_get:
@@ -94,7 +94,7 @@ async def async_urlsopen(urls):
 async def open_session():
     global session
     if session == None:
-        session = await aiohttp.ClientSession(cookie_jar=cookies).__aenter__()
+        session = await aiohttp.ClientSession(cookie_jar=cookie_jar).__aenter__()
 
 async def close_session():
     global session
@@ -110,12 +110,12 @@ def update_tokens(csrf, ftaa, bfaa, uc, usmc):
     with open(config.token_path, 'w') as f:
         json.dump(tokens, f)
 
-if not cookies:
-    cookies = aiohttp.CookieJar()
-    if path.isfile(config.cookies_path):
-        cookies.load(file_path=config.cookies_path)
+if not cookie_jar:
+    cookie_jar = aiohttp.CookieJar()
+    if path.isfile(config.cookie_jar):
+        cookie_jar.load(file_path=config.cookie_jar)
     else:
-        cookies.save(file_path=config.cookies_path)
+        cookie_jar.save(file_path=config.cookie_jar)
     if path.isfile(config.token_path):
         with open(config.token_path, 'r') as f:
             tokens = json.load(f)

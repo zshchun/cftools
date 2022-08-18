@@ -1,4 +1,8 @@
-from . import contest, problem, account, __version__
+from . import contest
+from . import problem
+from . import judge
+from . import account
+from . import __version__
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 def main():

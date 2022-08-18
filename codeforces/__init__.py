@@ -1,5 +1,2 @@
-from . import config, _http, contest
-from os import path
-
-__all__ = ['contest', 'config', '_http']
-__version__ = "0.4.1"
+__all__ = ['contest', 'account', 'config', '_http', '_ws', 'judge', 'problem', 'ui', 'util']
+__version__ = "0.4.2"
