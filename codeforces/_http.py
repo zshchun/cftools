@@ -3,7 +3,6 @@ from Cryptodome.Cipher import AES
 from os import path
 import asyncio
 import aiohttp
-import gzip
 import json
 
 CF_HOST = 'https://codeforces.com'

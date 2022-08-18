@@ -110,7 +110,7 @@ def extract_testcases(tags):
     return ret
 
 def parse_problems(args):
-    asyncio.run(async_parse(args))
+    asyncio.run(async_parse_problems(args))
 
 async def async_parse_problems(args):
     if 'cid' in args and args.cid:

@@ -87,4 +87,5 @@ $ cf open 1698
 - [ ] Problem parser
 - [ ] Editorial link
 - [ ] Manual
+- [ ] Generate config
 - [x] Login
