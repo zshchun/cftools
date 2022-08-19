@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import json
-import logging
+#import logging
 import re
 import asyncio
 from . import util
@@ -275,7 +275,7 @@ async def async_list_contest(args, upcoming=False):
         update = True;
     else:
         update = False;
-    last_modified = int(cur.execute('''SELECT strftime('%s', last_modified) FROM modifications WHERE site = 'codeforces';''').fetchone()[0])
+#    last_modified = int(cur.execute('''SELECT strftime('%s', last_modified) FROM modifications WHERE site = 'codeforces';''').fetchone()[0])
     now = int(time())
     row_count = cur.execute('''SELECT COUNT(*) FROM codeforces''').fetchone()[0]
 #    if now - last_modified > 24 * 3600 * 7 or row_count == 0:

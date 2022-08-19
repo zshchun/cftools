@@ -65,7 +65,7 @@ async def async_get(url, headers=None, csrf=False):
     if url.startswith('/'): url = CF_HOST + url
     result = None
     async with session.get(url, headers=headers) as response:
-        cookie_jar.save(file_path=config.cookie_jar)
+        cookie_jar.save(file_path=config.cookie_path)
         return await response.text()
 
 async def async_post(url, data, headers=None, csrf=False):
@@ -75,7 +75,7 @@ async def async_post(url, data, headers=None, csrf=False):
     if url.startswith('/'): url = CF_HOST + url
     result = None
     async with session.post(url, headers=headers, data=data) as response:
-        cookie_jar.save(file_path=config.cookie_jar)
+        cookie_jar.save(file_path=config.cookie_path)
         return await response.text()
 
 def urlsopen(urls):
@@ -112,10 +112,10 @@ def update_tokens(csrf, ftaa, bfaa, uc, usmc):
 
 if not cookie_jar:
     cookie_jar = aiohttp.CookieJar()
-    if path.isfile(config.cookie_jar):
-        cookie_jar.load(file_path=config.cookie_jar)
+    if path.isfile(config.cookie_path):
+        cookie_jar.load(file_path=config.cookie_path)
     else:
-        cookie_jar.save(file_path=config.cookie_jar)
+        cookie_jar.save(file_path=config.cookie_path)
     if path.isfile(config.token_path):
         with open(config.token_path, 'r') as f:
             tokens = json.load(f)

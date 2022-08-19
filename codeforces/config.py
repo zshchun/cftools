@@ -66,7 +66,7 @@ PROG_TYPE_ID = {
 }
 
 base_dir = environ["HOME"] + "/.cf"
-cookies_path = base_dir + '/cookies'
+cookie_path = base_dir + '/cookies'
 token_path = base_dir + '/tokens.json'
 solved_path = base_dir + '/solved.json'
 config_path = base_dir + "/config.toml"
@@ -88,11 +88,11 @@ def loads():
         db = sqlite3.connect(db_path)
         cur = db.cursor()
         cur.execute('''CREATE TABLE codeforces (cid integer primary key, title varchar, authors varchar, start varchar, length varchar, participants integer, upcoming integer);''')
-        cur.execute('''CREATE TABLE modifications (site TEXT NOT NULL PRIMARY KEY ON CONFLICT REPLACE, last_modified TIMESTAMP DEFAULT current_timestamp);''')
-        cur.execute('''INSERT INTO modifications (site) VALUES ('codeforces');''')
-        cur.execute('''CREATE TRIGGER update_time_codeforces AFTER UPDATE ON codeforces BEGIN UPDATE modifications SET last_modified = current_timestamp WHERE site = 'codeforces'; END;''')
-        cur.execute('''CREATE TRIGGER delete_time_codeforces AFTER DELETE ON codeforces BEGIN UPDATE modifications SET last_modified = current_timestamp WHERE site = 'codeforces'; END;''')
-        cur.execute('''CREATE TRIGGER insert_time_codeforces AFTER INSERT ON codeforces BEGIN UPDATE modifications SET last_modified = current_timestamp WHERE site = 'codeforces'; END;''')
+#        cur.execute('''CREATE TABLE modifications (site TEXT NOT NULL PRIMARY KEY ON CONFLICT REPLACE, last_modified TIMESTAMP DEFAULT current_timestamp);''')
+#        cur.execute('''INSERT INTO modifications (site) VALUES ('codeforces');''')
+#        cur.execute('''CREATE TRIGGER update_time_codeforces AFTER UPDATE ON codeforces BEGIN UPDATE modifications SET last_modified = current_timestamp WHERE site = 'codeforces'; END;''')
+#        cur.execute('''CREATE TRIGGER delete_time_codeforces AFTER DELETE ON codeforces BEGIN UPDATE modifications SET last_modified = current_timestamp WHERE site = 'codeforces'; END;''')
+#        cur.execute('''CREATE TRIGGER insert_time_codeforces AFTER INSERT ON codeforces BEGIN UPDATE modifications SET last_modified = current_timestamp WHERE site = 'codeforces'; END;''')
         db.commit()
     else:
         db = sqlite3.connect(db_path)
