@@ -46,9 +46,9 @@ async def async_post_source(url, filename, level, headers=None, csrf=False):
     for k, v in info.items():
         form.add_field(k, v)
     form.add_field('sourceFile', open(filename, 'rb'), filename=filename)
-    resp = await async_urlsopen([POST(url, form, headers, csrf)])
+    resp = await async_post(url, form, headers, csrf)
     if resp:
-        return resp[0]
+        return resp
     else:
         return None
 

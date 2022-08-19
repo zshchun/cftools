@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import json
-#import logging
 import re
 import asyncio
+from lxml import html, etree
 from . import util
 from . import _http
 from . import config
@@ -10,7 +10,6 @@ from . import ui
 from . import problem
 from .config import conf, db
 from time import time, sleep
-from bs4 import BeautifulSoup
 from datetime import datetime, timezone, timedelta
 from os import path, listdir, system
 from sys import argv, exit
@@ -23,13 +22,13 @@ async def async_view_submission(sid, prefix=''):
     else:
         res = await _http.async_post("/data/submitSource", { 'submissionId':sid })
         open(json_path, 'w').write(res)
-    print("[+] Cached:", json_path)
+#    print("[+] Cached:", json_path)
     js = json.loads(res)
     lang_ext = js['prettifyClass'][5:] if js['prettifyClass'].startswith('lang-') else js['prettifyClass']
     source_path = "{}/{}-{}.{}".format(path.expanduser(conf['cache_dir']), prefix, sid, lang_ext)
     open(source_path, 'w').write(js['source'])
     if "pager" in conf:
-        print("[+] View source:", source_path)
+#        print("[+] View source:", source_path)
         system(conf["pager"] + ' "' + source_path + '"')
 
 def get_solutions(args):
@@ -55,26 +54,27 @@ async def async_get_solutions(args):
     url = "/contest/{}/status/page/{}?order={}".format(cid, page, order)
     try:
         res = await _http.async_post(url, post_data)
-        bs = BeautifulSoup(res, 'html.parser')
-        table = bs.find("table", {"class": "status-frame-datatable"})
-        tr = table.find_all("tr", {"data-submission-id": True})
+        doc = html.fromstring(res)
+        tr = doc.xpath('.//table[@class="status-frame-datatable"]/tr[@data-submission-id]')
         assert len(tr) > 0, "empty tr tag"
         for t in tr:
-            td = t.find_all("td")
+            td = t.xpath('.//td')
             assert len(td) > 6, "not enough td tags"
-            sid = td[0].text.strip()
-            when = datetime.strptime(td[1].find('span').text, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk).astimezone(tz=None).strftime('%y-%m-%d %H:%M')
-            a = td[2].find('a', href=True)
-            who = {'profile':a['href'],'class':a['class'][1],'title':a['title'],'name':a.text}
+            sid = td[0].xpath('.//a[@class]')[0].text.strip()
+            when = datetime.strptime(td[1].xpath('.//span')[0].text, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk).astimezone(tz=None).strftime('%y-%m-%d %H:%M')
+            a = td[2].xpath('.//a[@href]')[0]
+            who = {'profile':a.get('href'),'class':a.get('class').split(' ')[1],'title':a.get('title'),'name':a.text}
             c = who['class'].split('-')[1]
             name = ui.setcolor(c, who['name'].ljust(20))
-            problem = td[3].text.strip()
+            prob_title = td[3].xpath('.//a')[0].text.strip()
+            level = prob_title.split('-')[0].strip()
             lang = td[4].text.strip()
-            verdict = td[5].text.strip()
+            verdict = td[5].xpath('.//span[@class="verdict-accepted"]')
+            verdict = verdict[0].text if verdict and verdict[0].text == 'Accepted' else None
+            if not verdict or verdict != 'Accepted': continue
             ms = td[6].text.strip()
             mem = td[7].text.strip()
-            assert verdict == 'Accepted', 'submission was not accepted'
-            print("{:9s} {} {} {:<15s} {:>7s} {:>8s} ".format(sid, problem, name, lang, ms, mem), end='')
+            print("{} {:9s} {} {:<15s} {:>7s} {:>8s} ".format(level, sid, name, lang, ms, mem), end='')
             choice = input("View? [Y/n] ").lower()
             if choice == "yes" or choice == 'y' or choice == '':
                 r = await async_view_submission(sid, str(cid)+level)
@@ -97,16 +97,18 @@ async def async_search_editorial(args):
         res = await _http.async_post('/search', {'query': title + ' editorial' })
     finally:
         await _http.close_session()
-    bs = BeautifulSoup(res, 'html.parser')
-    topics = bs.find_all("div", {"class": "topic"})
+    doc = html.fromstring(res)
+    topics = doc.xpath('.//div[@class="topic"]')
     finding_words = [t.lower() for t in title.split()] + ['editorial']
+    if not topics:
+        print("[!] No result")
+        return
     posts = []
     for t in topics:
-        div = t.find("div", {"class": "title"})
+        div = t.xpath('.//div[@class="title"]')
         page_title = div.a.text.strip()
         if page_title.lower().find('editorial') == -1: continue
-
-        page_url = _http.CF_HOST + div.find('a', href=True)['href']
+        page_url = _http.CF_HOST + div.xpath('.//a')[0].get('href')
         words = [t.lower() for t in page_title.split()]
         matches = sum(w in finding_words for w in words)
         posts += [{'title':page_title, 'url':page_url, 'match':matches}]
@@ -151,27 +153,27 @@ def open_url(args):
         system('''{} "{}" "{}"'''.format(conf['browser'], contest_url, problems_url))
 
 def count_contests(contests):
-     return len([c for c in contests.find_all("tr", {"data-contestid": True})])
+    return len(contests.xpath('.//tr[@data-contestid]'))
 
 def parse_list(raw_contests, upcoming=0, write_db=True):
     cur = db.cursor()
 #    last_contest = cur.execute('''SELECT cid, start FROM codeforces WHERE upcoming = 0 ORDER BY start DESC;''').fetchone()
     contests = {}
 #    page_overlapped = False
-    for c in raw_contests.find_all("tr", {"data-contestid": True}):
-        cid = int(c['data-contestid'])
+    for c in raw_contests.xpath('.//tr[@data-contestid]'):
+        cid = int(c.get('data-contestid'))
 #        if last_contest and last_contest[0] == cid: page_overlapped = True
-        td = c.find_all("td")
-#           urls = [h.extract()['href'] for h in td[0].find_all('a', href=True)]
+        td = c.xpath('.//td')
         title = td[0].text.lstrip().splitlines()[0]
-        authors = [{'profile':a['href'],'class':a['class'][1],'title':a['title'],'name':a.text} for a in td[1].find_all('a', href=True)]
-        start = td[2].find('span').text
+        authors = [{'class':a.get('class').split(' ')[1],'profile':a.get('href'),'title':a.get('title'),'name':a.text} for a in td[1].xpath('.//a')]
+        start = td[2].xpath('.//span')[0].text
         start = datetime.strptime(start, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk)
         length = td[3].text.strip()
+
         if upcoming:
             participants = 0
         else:
-            participants = td[5].text.strip().lstrip('x')
+            participants = ''.join(td[5].itertext()).strip().lstrip('x')
 
         contests[cid] = {'title':title, 'authors':authors, 'start':start, 'length':length, 'participants':participants, 'upcoming':0}
         if write_db:
@@ -304,8 +306,8 @@ async def async_list_contest(args, upcoming=False):
             urls += [_http.GET('/contests/page/{:d}'.format(page))]
         pages = await _http.async_urlsopen(urls)
         for page in pages:
-            bs = BeautifulSoup(page, 'html.parser')
-            table = bs.find_all("div", {"class": "datatable"})
+            doc = html.fromstring(page)
+            table = doc.xpath('.//div[@class="datatable"]')
             if count_contests(table[1]) == 0:
                 print("[!] Contest is running")
                 break

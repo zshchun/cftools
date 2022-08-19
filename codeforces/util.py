@@ -24,3 +24,8 @@ def get_cwd_info():
         cid = None
         level = None
     return cid, level
+
+def pop_element(t):
+        text = t.text
+        t.getparent().remove(t)
+        return text
