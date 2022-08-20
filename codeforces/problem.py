@@ -144,11 +144,17 @@ async def async_parse_problems(args):
         for j in typo.xpath('.//div[@class="section-title"]'):
             pop_element(j)
 
-        in_spec = typo.xpath('.//div[@class="input-specification"]')[0]
-        in_spec = '\n'.join([t for t in in_spec.itertext()])
+        in_spec = typo.xpath('.//div[@class="input-specification"]')
+        if in_spec:
+            in_spec = '\n'.join([t for t in in_spec[0].itertext()])
+        else:
+            in_spec = ""
 
-        out_spec = typo.xpath('.//div[@class="output-specification"]')[0]
-        out_spec = '\n'.join([t for t in out_spec.itertext()])
+        out_spec = typo.xpath('.//div[@class="output-specification"]')
+        if out_spec:
+            out_spec = '\n'.join([t for t in out_spec[0].itertext()])
+        else:
+            out_spec = ""
 
         in_tc  = extract_testcases(typo.xpath('.//div[@class="input"]'))
         out_tc = extract_testcases(typo.xpath('.//div[@class="output"]'))

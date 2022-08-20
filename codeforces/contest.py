@@ -64,6 +64,7 @@ async def async_get_solutions(args):
             when = datetime.strptime(td[1].xpath('.//span')[0].text, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk).astimezone(tz=None).strftime('%y-%m-%d %H:%M')
             a = td[2].xpath('.//a[@href]')[0]
             who = {'profile':a.get('href'),'class':a.get('class').split(' ')[1],'title':a.get('title'),'name':a.text}
+            if not who['name']: who['name'] = 'NONAME'
             c = who['class'].split('-')[1]
             name = ui.setcolor(c, who['name'].ljust(20))
             prob_title = td[3].xpath('.//a')[0].text.strip()
