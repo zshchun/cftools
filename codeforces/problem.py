@@ -99,11 +99,11 @@ def extract_testcases(tags):
             prev = divs[0].get('class')
             lines = []
             for d in divs:
-                if d['class'] == prev:
+                if d.get('class') == prev:
                     l += d.text + '\n'
                 else:
                     lines.append(l)
-                    prev = d['class']
+                    prev = d.get('class')
                     l = d.text + '\n'
             if l: lines.append(l.strip()+'\n')
             ret.append(lines)
