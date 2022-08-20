@@ -34,9 +34,9 @@ def main():
     _login = subparsers.add_parser('login', help="Sign in codeforces account")
     _login.set_defaults(func=account.login)
 
-    _editorial = subparsers.add_parser('editorial', aliases=['d'], help="Search editorial links")
+    _editorial = subparsers.add_parser('editorial', aliases=['d'], help="Show editorial and announcement links")
     _editorial.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
-    _editorial.set_defaults(func=contest.search_editorial)
+    _editorial.set_defaults(func=contest.get_contest_materials)
 
     _open = subparsers.add_parser('open', aliases=['o'], help="Open codeforces URL")
     _open.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)

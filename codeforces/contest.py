@@ -81,6 +81,31 @@ async def async_get_solutions(args):
     finally:
         await _http.close_session()
 
+def get_contest_materials(args):
+    asyncio.run(async_get_contest_materials(args))
+
+async def async_get_contest_materials(args):
+    cid, _ = util.guess_cid(args)
+    contest_info = get_contest_info(cid)
+    if not cid or not contest_info:
+        print("[!] Invalid contestID")
+        return
+    await _http.open_session()
+    try:
+        contest_url = "/contest/{}".format(cid)
+        resp = await _http.async_get(contest_url)
+        doc = html.fromstring(resp)
+        captions = doc.xpath('.//div[@class="caption titled"]')
+        for c in captions:
+            title = c.text[1:].strip()
+            if title != 'Contest materials':
+                continue
+            links = c.getparent().xpath('.//a[@href]')
+            for a in links:
+                print("[+] {}\n{}{}".format(a.get('title'), _http.CF_HOST, a.get('href')))
+    finally:
+        await _http.close_session()
+
 def search_editorial(args):
     asyncio.run(async_search_editorial(args))
 
