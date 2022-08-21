@@ -37,9 +37,9 @@ async def _submit(args):
     print("[+] Submit {}{} : {}".format(cid, level.upper(), filename))
 
     epoch = int(time() * 1000)
+    await _http.open_session()
     tokens = _http.get_tokens()
     ws_url = "wss://pubsub.codeforces.com/ws/{}/{}?_={}&tag=&time=&eventid=".format(tokens['uc'], tokens['usmc'], epoch)
-    await _http.open_session()
     try:
         task = asyncio.create_task(_ws.message_receiver(ws_url, display_submit_result))
         url = '/contest/{}/problem/{}?csrf_token={}'.format(cid, level.upper(), tokens['csrf'])
