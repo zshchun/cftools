@@ -49,36 +49,39 @@ async def async_get_solutions(args):
     }
 #        order = 'BY_JUDGED_DESC'
     order = 'BY_ARRIVED_ASC'
-    page = 1
     await _http.open_session()
-    url = "/contest/{}/status/page/{}?order={}".format(cid, page, order)
     try:
-        res = await _http.async_post(url, post_data)
-        doc = html.fromstring(res)
-        tr = doc.xpath('.//table[@class="status-frame-datatable"]/tr[@data-submission-id]')
-        assert len(tr) > 0, "empty tr tag"
-        for t in tr:
-            td = t.xpath('.//td')
-            assert len(td) > 6, "not enough td tags"
-            sid = td[0].xpath('.//a[@class]')[0].text.strip()
-            when = datetime.strptime(td[1].xpath('.//span')[0].text, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk).astimezone(tz=None).strftime('%y-%m-%d %H:%M')
-            a = td[2].xpath('.//a[@href]')[0]
-            who = {'profile':a.get('href'),'class':a.get('class').split(' ')[1],'title':a.get('title'),'name':a.text}
-            if not who['name']: who['name'] = 'NONAME'
-            c = who['class'].split('-')[1]
-            name = ui.setcolor(c, who['name'].ljust(20))
-            prob_title = td[3].xpath('.//a')[0].text.strip()
-            level = prob_title.split('-')[0].strip()
-            lang = td[4].text.strip()
-            verdict = td[5].xpath('.//span[@class="verdict-accepted"]')
-            verdict = verdict[0].text if verdict and verdict[0].text == 'Accepted' else None
-            if not verdict or verdict != 'Accepted': continue
-            ms = td[6].text.strip()
-            mem = td[7].text.strip()
-            print("{} {:9s} {} {:<15s} {:>7s} {:>8s} ".format(level, sid, name, lang, ms, mem), end='')
-            choice = input("View? [Y/n] ").lower()
-            if choice == "yes" or choice == 'y' or choice == '':
-                r = await async_view_submission(sid, str(cid)+level)
+        for page in range(1,20):
+            url = "/contest/{}/status/page/{}?order={}".format(cid, page, order)
+            res = await _http.async_post(url, post_data)
+            doc = html.fromstring(res)
+            rows = doc.xpath('.//table[@class="status-frame-datatable"]/tr[@data-submission-id]')
+            assert len(rows) > 0, "empty tr tag"
+            for tr in rows:
+                td = tr.xpath('.//td')
+                assert len(td) > 6, "not enough td tags"
+                sid = td[0].xpath('.//a[@class]')[0].text.strip()
+                when = datetime.strptime(td[1].xpath('.//span')[0].text, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk).astimezone(tz=None).strftime('%y-%m-%d %H:%M')
+                a = td[2].xpath('.//a[@href]')[0]
+                user = {}
+                user['profile'] = a.get('href')
+                user['class'] = a.get('class').split(' ')[1]
+                user['title'] = a.get('title')
+                user['name'] = ''.join(a.itertext()).strip()
+                c = user['class'].split('-')[1]
+                name = ui.setcolor(c, user['name'].ljust(20))
+                prob_title = td[3].xpath('.//a')[0].text.strip()
+                level = prob_title.split('-')[0].strip()
+                lang = td[4].text.strip()
+                verdict = td[5].xpath('.//span[@class="verdict-accepted"]')
+                verdict = verdict[0].text if verdict and verdict[0].text == 'Accepted' else None
+                if not verdict or verdict != 'Accepted': continue
+                ms = td[6].text.strip()
+                mem = td[7].text.strip()
+                print("{} {:9s} {} {:<15s} {:>7s} {:>8s} ".format(level, sid, name, lang, ms, mem), end='')
+                choice = input("View? [Y/n] ").lower()
+                if choice == "yes" or choice == 'y' or choice == '':
+                    r = await async_view_submission(sid, str(cid)+level)
     finally:
         await _http.close_session()
 
