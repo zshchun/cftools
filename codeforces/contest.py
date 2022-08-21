@@ -240,7 +240,7 @@ async def async_get_solved_count():
     open(config.solved_path, 'w').write(solved_string)
     return solved_json
 
-def show_contests(contests, check_solved=False, upcoming=False, solved_json=None):
+def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
     total_contests = 0;
     solved_contests = 0
     for c in contests:
@@ -273,13 +273,13 @@ def show_contests(contests, check_solved=False, upcoming=False, solved_json=None
             participants = ('x'+str(c[5])).rjust(7, ' ')
             weekday = ''
 
-        if check_solved and solved_json and str(cid) in solved_json['solvedProblemCountsByContestId'] and str(cid) in solved_json['problemCountsByContestId']:
+        if solved_json and str(cid) in solved_json['solvedProblemCountsByContestId'] and str(cid) in solved_json['problemCountsByContestId']:
             solved_cnt = solved_json['solvedProblemCountsByContestId'][str(cid)]
             prob_cnt = solved_json['problemCountsByContestId'][str(cid)]
             solved_str = "{:d}/{:d} ".format(solved_cnt, prob_cnt)
             if len(div) > 0 and solved_cnt > 0 and (solved_cnt == prob_cnt or solved_cnt >= conf['contest_goals'][div[-1]]):
                 solved_contests += 1
-                if conf['hide_solved_contest']:
+                if not show_all and conf['hide_solved_contest']:
                     puts = lambda *args: None
                 else:
                     puts = ui.green
@@ -290,7 +290,7 @@ def show_contests(contests, check_solved=False, upcoming=False, solved_json=None
             solved_str = ""
         contest_info = "{:04d} {:<3} {}{:<{width}} {} ({}){}{}{}".format(cid, div, solved_str, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, weekday, countdown, participants, width=conf['title_width'])
         puts(contest_info)
-    if check_solved:
+    if not upcoming:
         print("[+] Solved {:d}/{:d} contests".format(solved_contests, total_contests))
 
 def list_contest(args, upcoming=False):
@@ -348,7 +348,7 @@ async def async_list_contest(args, upcoming=False):
     else:
         print("[+] Past contests")
         contests = cur.execute('''SELECT cid, title, authors, start, length, participants FROM codeforces WHERE upcoming = 0 ORDER BY start;''')
-        show_contests(contests, check_solved=not args.all, solved_json=solved_json)
+        show_contests(contests, show_all=args.all, solved_json=solved_json)
 
 def list_past_contest(args):
     list_contest(args, upcoming=False)
