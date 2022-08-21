@@ -8,6 +8,7 @@ from . import _http
 from . import config
 from . import ui
 from . import problem
+from .constants import *
 from .config import conf, db
 from time import time, sleep
 from datetime import datetime, timezone, timedelta
@@ -106,7 +107,7 @@ async def async_get_contest_materials(args):
                 continue
             links = c.getparent().xpath('.//a[@href]')
             for a in links:
-                print("[+] {}\n{}{}".format(a.get('title'), _http.CF_HOST, a.get('href')))
+                print("[+] {}\n{}{}".format(a.get('title'), CF_HOST, a.get('href')))
     finally:
         await _http.close_session()
 
@@ -137,7 +138,7 @@ async def async_search_editorial(args):
         div = t.xpath('.//div[@class="title"]')
         page_title = div.a.text.strip()
         if page_title.lower().find('editorial') == -1: continue
-        page_url = _http.CF_HOST + div.xpath('.//a')[0].get('href')
+        page_url = CF_HOST + div.xpath('.//a')[0].get('href')
         words = [t.lower() for t in page_title.split()]
         matches = sum(w in finding_words for w in words)
         posts += [{'title':page_title, 'url':page_url, 'match':matches}]
@@ -167,15 +168,15 @@ def show_contest_info(args):
             print("{} {} {}".format(cid, c[0], level.upper()))
         else:
             print("{} {}".format(cid, c[0]))
-        print("{}/contest/{}".format(_http.CF_HOST, cid))
+        print("{}/contest/{}".format(CF_HOST, cid))
     else:
         print("[!] ContestID is empty")
 
 def open_url(args):
     cid, level = util.guess_cid(args)
     if not cid: return
-    problems_url = "{}/contest/{}/problems".format(_http.CF_HOST, cid)
-    contest_url = "{}/contest/{}".format(_http.CF_HOST, cid)
+    problems_url = "{}/contest/{}/problems".format(CF_HOST, cid)
+    contest_url = "{}/contest/{}".format(CF_HOST, cid)
     print("[+] Open", contest_url)
     print("[+] Open", problems_url)
     if 'open_in_browser' in conf and conf['open_in_browser'] == True:
