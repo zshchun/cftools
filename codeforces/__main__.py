@@ -38,6 +38,12 @@ def main():
     _editorial.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
     _editorial.set_defaults(func=contest.get_contest_materials)
 
+    _test = subparsers.add_parser('test', aliases=['t'], help="Test with testcases")
+    _test.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
+    _test.add_argument('level', metavar='problem level', nargs='?', action='store', type=str)
+    _test.add_argument('-i', '--input', action='store', type=str, help="Input source")
+    _test.set_defaults(func=judge.test)
+
     _open = subparsers.add_parser('open', aliases=['o'], help="Open codeforces URL")
     _open.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
     _open.add_argument('level', metavar='problem level', nargs='?', action='store', type=str)
@@ -46,6 +52,11 @@ def main():
     _parse = subparsers.add_parser('parse', aliases=['p'], help="Parse problems of a contest")
     _parse.add_argument('cid', metavar='contestID', action='store', type=int)
     _parse.set_defaults(func=problem.parse_problems)
+
+    _generate = subparsers.add_parser('generate', aliases=['g'], help="Generate source code from template")
+    _generate.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
+    _generate.add_argument('level', metavar='level', nargs='?', action='store', type=str)
+    _generate.set_defaults(func=problem.generate_source)
 
     _race = subparsers.add_parser('race', aliases=['r'], help="Race a contest")
     _race.add_argument('cid', metavar='contestID', action='store', type=int)

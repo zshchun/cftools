@@ -10,6 +10,36 @@ from lxml import html, etree
 from .config import conf
 import asyncio
 
+def find_source_files(_dir):
+    exts = [k['ext'] for k in conf['lang']]
+    if not exts: return
+    files = [_dir + sep + f for f in listdir(_dir) if path.isfile(f) and path.splitext(f)[-1].lstrip('.') in exts]
+    return files
+
+def prepare_problem_dir(cid, level=None):
+    p = path.expanduser(config.conf['contest_dir'] + sep + str(cid))
+    if level == None:
+        makedirs(p, exist_ok=True)
+    else:
+        p += sep + level.lower()
+        makedirs(p, exist_ok=True)
+    return p
+
+def find_input_files(_dir):
+    ins = [_dir + sep + f for f in listdir(_dir) if path.isfile(f) and path.splitext(f)[-1] == '.txt' and f.startswith('in')]
+    return ins
+
+def select_source_code(cid, level):
+    prob_path = prepare_problem_dir(cid, level)
+    files = find_source_files(prob_path)
+    if len(files) == 0:
+        print("[!] File not found")
+        return None
+    elif len(files) >= 2:
+        print("[!] There are multiple solutions")
+        return None
+    return files[0]
+
 def submit(args):
     return asyncio.run(_submit(args))
 
@@ -20,20 +50,12 @@ async def _submit(args):
         return
     if args.input:
         filename = args.input
-        if not path.isfile(filename):
-            print("[!] File not found : {}".format(filename))
-            return
     else:
-        exts = [k['ext'] for k in conf['lang']]
-        if not exts: return
-        filename = [f for f in listdir('.') if path.isfile(f) and path.splitext(f)[1].lstrip('.') in exts]
-        if len(filename) == 0:
-            print("[!] File not found")
-            return
-        elif len(filename) >= 2:
-            print("[!] There are multiple solutions. Select one of solutions. (-i)")
-            return
-        filename = filename[0]
+        filename = select_source_code(cid, level)
+    if not path.isfile(filename):
+        print("[!] File not found : {}".format(filename))
+        return
+
     print("[+] Submit {}{} : {}".format(cid, level.upper(), filename))
 
     epoch = int(time() * 1000)
@@ -122,8 +144,6 @@ async def async_parse_problems(args):
     await _http.open_session()
     resp = await _http.async_get(url)
     await _http.close_session()
-    base_dir = path.expanduser(config.conf['contest_dir'] + sep + str(cid))
-    makedirs(base_dir, exist_ok=True)
     doc = html.fromstring(resp)
     probs = doc.xpath('.//div[@class="problemindexholder"]')
     for p in probs:
@@ -170,10 +190,28 @@ async def async_parse_problems(args):
             note = '\n'.join([t for t in note[0].itertext()])
             print('NOTE:', note)
         for i in in_tc:
-            prob_dir = base_dir + sep + level.lower()
-            makedirs(prob_dir, exist_ok=True)
+            prob_dir = prepare_problem_dir(cid, level)
             for j in range(len(in_tc)):
                 fi = open(prob_dir+sep+'in'+str(j+1)+'.txt', 'w')
                 fo = open(prob_dir+sep+'ans'+str(j+1)+'.txt', 'w')
                 for k in in_tc[j]: fi.write(k)
                 for k in out_tc[j]: fo.write(k)
+
+def generate_source(args):
+    cid, level = guess_cid(args)
+    if not cid or not level:
+        print("[!] Invalid contestID or level")
+        return
+    template_path = path.expanduser(conf['template'])
+    if not path.isfile(template_path):
+        print("[!] Template file not found")
+        return
+    prob_dir = prepare_problem_dir(cid, level)
+    ext = path.splitext(template_path)[-1]
+    assert ext != "", "[!] File extension not found"
+    new_path = prob_dir + sep + level.lower() + ext
+    inf = open(template_path, 'r')
+    outf = open(new_path, 'w')
+    for line in inf:
+        outf.write(line)
+    ui.green('[+] Generate {}'.format(new_path))

@@ -7,6 +7,7 @@ DEFAULT_CONFIG = {
     'contest_dir': '~/codeforces',
     'cache_dir': '~/.cf/cache',
     'database': '~/.cf/cache.db',
+    'template': '~/.cf/template.cpp',
     'title_width': 40,
     'max_page': 3,
     'open_in_browser': True,

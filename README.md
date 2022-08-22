@@ -88,4 +88,6 @@ $ cf open 1698
 - [ ] Editorial link
 - [ ] Manual
 - [ ] Generate config
+- [ ] Input testcases
+- [ ] Generate random testcase
 - [x] Login
