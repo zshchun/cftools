@@ -2,6 +2,7 @@ from . import problem
 from . import ui
 from .util import guess_cid
 from os import listdir, path, unlink, sep
+from sys import exit
 import time
 import subprocess
 
@@ -9,7 +10,14 @@ def compile_code(src_path, run_path):
 # TODO support other languages
 # TODO support template strings
     print("[+] Compile {}".format(src_path))
-    subprocess.run(["g++", "-O2", "-o", run_path, src_path], capture_output=True)
+    proc = subprocess.run(["g++", "-O2", "-o", run_path, src_path], capture_output=True)
+    if proc.returncode != 0:
+        if proc.stdout:
+            print(proc.stdout.decode())
+        if proc.stderr:
+            print(proc.stderr.decode())
+        ui.red("[!] Compile error!")
+        exit(1)
 
 def test(args):
     cid, level = guess_cid(args)
@@ -28,23 +36,50 @@ def test(args):
     run_path = path.splitext(filename)[0]
     input_files = problem.find_input_files(prob_dir)
     compile_code(filename, run_path)
+    ac = 0
     for in_file in input_files:
         d = path.dirname(in_file)
         f = path.basename(in_file)
         output_file = d + sep + 'ans' + f[2:]
-        #print(output_file)
         if not path.isfile(output_file):
             continue
-        # TODO timeout
         # TODO diff result
         proc = subprocess.Popen([run_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         inputs = open(in_file, "rb").read()
         proc.stdin.write(inputs)
-        outputs, error = proc.communicate()
-        expected_outputs = open(output_file, "rb").read()
-        if outputs == expected_outputs:
-            ui.green("Accepted")
-        else:
-            ui.red("Wrong Answer")
+        # TODO timeout from answer
+        try:
+            outputs, error = proc.communicate(timeout=5)
+            expected_outputs = open(output_file, "rb").read()
+            same = True
+            report = ''
+            for o1, o2 in zip(outputs.decode().splitlines(), expected_outputs.decode().splitlines()):
+                if o1.strip() == o2.strip():
+                    report += ' ' + o1 + '\n'
+                    continue
+                else:
+                    same = False
+                    report += ui.setcolor('red', '-'+o1) + '\n'
+                    report += ui.setcolor('green', '+'+o2) + '\n'
+            if same:
+                ac += 1
+                ui.green("Passed #{}".format(idx))
+            else:
+                ui.red("Failed #{}".format(idx))
+                print(report)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            outputs, error = proc.communicate()
+            ui.red("[!] Timeout!")
+            if outputs:
+                print(outputs.decode())
+            if error:
+                print(error.decode())
+    total = len(input_files)
+    if total == 0:
+        ui.red("[!] There is no testcases")
+    elif total == ac:
+        ui.green("[{}/{}] Accepted".format(ac, total))
+    else:
+        ui.red("[{}/{}] Wrong Answer".format(ac, total))
     unlink(run_path)
-

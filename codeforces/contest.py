@@ -23,13 +23,11 @@ async def async_view_submission(sid, prefix=''):
     else:
         res = await _http.async_post("/data/submitSource", { 'submissionId':sid })
         open(json_path, 'w').write(res)
-#    print("[+] Cached:", json_path)
     js = json.loads(res)
     lang_ext = js['prettifyClass'][5:] if js['prettifyClass'].startswith('lang-') else js['prettifyClass']
     source_path = "{}/{}-{}.{}".format(path.expanduser(conf['cache_dir']), prefix, sid, lang_ext)
     open(source_path, 'w').write(js['source'])
     if "pager" in conf:
-#        print("[+] View source:", source_path)
         system(conf["pager"] + ' "' + source_path + '"')
 
 def get_solutions(args):

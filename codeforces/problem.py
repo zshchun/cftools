@@ -106,7 +106,7 @@ async def display_submit_result(result):
         puts("[+] [{}] {}".format(cid, msg))
         puts("[+] Test Cases {}/{}, {} ms, {} KB".format(passed, testcases, ms, mem//1024))
     if update:
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(1.5)
         await contest.async_get_solved_count()
 
 def extract_testcases(tags):

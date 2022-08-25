@@ -3,10 +3,11 @@ from . import problem
 from . import judge
 from . import account
 from . import __version__
+from sys import argv
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 def main():
-    parser = ArgumentParser(prog='Codeforces CLI', description="Codeforce CLI tool")
+    parser = ArgumentParser(prog=argv[0], description="Codeforce CLI tool")
     parser.add_argument('--version', help="version", action='version', version='%(prog)s ' + __version__)
     subparsers = parser.add_subparsers(title='commands', dest='command')
     commands = {}
