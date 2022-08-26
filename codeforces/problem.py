@@ -1,5 +1,4 @@
 from . import _http
-from . import _ws
 from . import ui
 from . import config
 from . import contest
@@ -39,81 +38,6 @@ def select_source_code(cid, level):
         print("[!] There are multiple solutions")
         return None
     return files[0]
-
-def submit(args):
-    return asyncio.run(async_submit(args))
-
-async def async_submit(args):
-    cid, level = guess_cid(args)
-    if not cid or not level:
-        print("[!] Invalid contestID or level")
-        return
-    if args.input:
-        filename = args.input
-    else:
-        filename = select_source_code(cid, level)
-    if not path.isfile(filename):
-        print("[!] File not found : {}".format(filename))
-        return
-
-    print("[+] Submit {}{} : {}".format(cid, level.upper(), filename))
-
-    epoch = int(time() * 1000)
-    await _http.open_session()
-    tokens = _http.get_tokens()
-    ws_url = "wss://pubsub.codeforces.com/ws/{}/{}?_={}&tag=&time=&eventid=".format(tokens['uc'], tokens['usmc'], epoch)
-    try:
-        task = asyncio.create_task(_ws.message_receiver(ws_url, display_submit_result))
-        url = '/contest/{}/problem/{}?csrf_token={}'.format(cid, level.upper(), tokens['csrf'])
-        resp = await _http.async_post_source(url, filename, level.upper())
-        doc = html.fromstring(resp)
-        for e in doc.xpath('.//span[@class="error for__sourceFile"]'):
-            if e.text == 'You have submitted exactly the same code before':
-                print("[!] " + e.text)
-                return
-        await task
-    finally:
-        await _http.close_session()
-
-async def display_submit_result(result):
-    update = False
-    submits = []
-    for r in result:
-        d = r['text']['d']
-        submit_id = d[1]
-        if submit_id in submits:
-            continue
-        submits.append(submit_id)
-        cid = d[2]
-        title = d[4] # "TESTS"
-        msg = d[6]
-        passed = d[7]
-        testcases = d[8]
-        ms = d[9]
-        mem = d[10]
-        date1 = d[13]
-        date2 = d[14]
-        lang_id = d[16]
-        if msg == "OK":
-            puts = ui.green
-            msg = 'Accepted'
-            update = True
-        elif msg == "WRONG_ANSWER":
-            msg = 'Wrong Answer'
-            puts = ui.red
-        elif msg == "TIME_LIMIT_EXCEEDED":
-            msg = 'Time Limit Exceed'
-            puts = ui.red
-        elif msg == "RUNTIME_ERROR":
-            msg = 'Runtime Error'
-            puts = ui.blue
-        else:
-            puts = print
-        puts("[+] [{}] {}".format(cid, msg))
-        puts("[+] Test Cases {}/{}, {} ms, {} KB".format(passed, testcases, ms, mem//1024))
-    if update:
-        await asyncio.sleep(1.5)
-        await contest.async_get_solved_count()
 
 def extract_testcases(tags):
     ret = []

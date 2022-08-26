@@ -3,7 +3,6 @@ from . import ui
 from .util import guess_cid
 from os import listdir, path, unlink, sep
 from sys import exit
-import time
 import subprocess
 
 def compile_code(src_path, run_path):

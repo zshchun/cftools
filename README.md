@@ -90,4 +90,5 @@ $ cf open 1698
 - [ ] Generate config
 - [ ] Input testcases
 - [ ] Generate random testcase
+- [ ] Registration
 - [x] Login

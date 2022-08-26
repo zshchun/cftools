@@ -1,6 +1,7 @@
 from . import contest
 from . import problem
 from . import judge
+from . import submit
 from . import account
 from . import __version__
 from sys import argv
@@ -67,7 +68,7 @@ def main():
     _submit.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
     _submit.add_argument('level', metavar='level', nargs='?', action='store', type=str)
     _submit.add_argument('-i', '--input', action='store', type=str, help="Input source")
-    _submit.set_defaults(func=problem.submit)
+    _submit.set_defaults(func=submit.submit)
 
     args = parser.parse_args()
     if 'func' in args:

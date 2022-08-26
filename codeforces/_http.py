@@ -32,25 +32,6 @@ def post(url, data, headers=None, csrf=False):
     else:
         return None
 
-async def async_post_source(url, filename, level, headers=None, csrf=False):
-    info = {
-        'csrf_token': tokens['csrf'],
-        'ftaa': tokens['ftaa'],
-        'bfaa': tokens['bfaa'],
-        'action': 'submitSolutionFormSubmitted',
-        'submittedProblemIndex': level,
-        'programTypeId': str(config.conf['prog_id']),
-    }
-    form = aiohttp.FormData()
-    for k, v in info.items():
-        form.add_field(k, v)
-    form.add_field('sourceFile', open(filename, 'rb'), filename=filename)
-    resp = await async_post(url, form, headers, csrf)
-    if resp:
-        return resp
-    else:
-        return None
-
 def GET(url, headers=None, csrf=False):
     return {'method':async_get, 'url':url, 'headers':headers, 'csrf':csrf}
 
