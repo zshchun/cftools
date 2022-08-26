@@ -285,6 +285,8 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
                     puts = lambda *args: None
                 else:
                     puts = ui.green
+        if not show_all and conf['only_goals'] and (not div or conf['contest_goals'][div[-1]] == 0):
+            puts = lambda *args: None
 
         elif solved_json:
             solved_str = "    "

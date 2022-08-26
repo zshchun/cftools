@@ -1,4 +1,3 @@
-import ssl
 import json
 import asyncio
 import websockets

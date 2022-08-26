@@ -1,6 +1,5 @@
 from . import config
 from .constants import *
-from Cryptodome.Cipher import AES
 from os import path
 import asyncio
 import aiohttp

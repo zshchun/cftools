@@ -41,9 +41,9 @@ def select_source_code(cid, level):
     return files[0]
 
 def submit(args):
-    return asyncio.run(_submit(args))
+    return asyncio.run(async_submit(args))
 
-async def _submit(args):
+async def async_submit(args):
     cid, level = guess_cid(args)
     if not cid or not level:
         print("[!] Invalid contestID or level")
@@ -101,6 +101,12 @@ async def display_submit_result(result):
         elif msg == "WRONG_ANSWER":
             msg = 'Wrong Answer'
             puts = ui.red
+        elif msg == "TIME_LIMIT_EXCEEDED":
+            msg = 'Time Limit Exceed'
+            puts = ui.red
+        elif msg == "RUNTIME_ERROR":
+            msg = 'Runtime Error'
+            puts = ui.blue
         else:
             puts = print
         puts("[+] [{}] {}".format(cid, msg))

@@ -14,6 +14,7 @@ DEFAULT_CONFIG = {
     'browser': 'google-chrome',
     'pager': 'less',
     'prog_id': 61,
+    'only_goals': False,
     'hide_solved_contest': False,
     'lang': [
         {'ext': "cpp", 'cmd': "g++ -O2", },
@@ -78,8 +79,9 @@ def loads():
     global conf, db
     if path.isfile(config_path):
         conf = tomli.load(open(config_path, "rb"))
-    else:
-        conf = DEFAULT_CONFIG
+    for k, v in DEFAULT_CONFIG.items():
+        if not k in conf:
+            conf[k] = v
     for d in [base_dir, conf['contest_dir'], conf['cache_dir']]:
         if not path.isdir(path.expanduser(d)):
             makedirs(path.expanduser(d))

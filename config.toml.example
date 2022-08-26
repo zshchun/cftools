@@ -8,6 +8,7 @@ open_in_browser = true
 browser = "google-chrome"
 pager = "less"
 prog_id = 61
+only_goals = false
 hide_solved_contest = false
 
 [[lang]]
