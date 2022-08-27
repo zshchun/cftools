@@ -49,6 +49,11 @@ def test(args):
         try:
             outputs, error = proc.communicate(timeout=5)
             expected_outputs = open(output_file, "rb").read()
+            if proc.returncode != 0:
+                print("[!] Failed with exit code : {}".format(proc.returncode))
+                if outputs: print(outputs.decode())
+                if error: print(error.decode())
+                continue
             same = True
             report = ''
             a = outputs.decode().splitlines()
