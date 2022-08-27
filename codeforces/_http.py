@@ -95,14 +95,14 @@ async def open_session():
         with open(config.token_path, 'r') as f:
             tokens = json.load(f)
     if config.conf['trace_requests']:
-        trace_config = aiohttp.TraceConfig()
-        trace_config.on_request_start.append(on_request_start)
-        trace_config.on_request_chunk_sent.append(on_request_chunk_sent)
-        trace_config.on_request_end.append(on_request_end)
+        trace_config = [aiohttp.TraceConfig()]
+        trace_config[0].on_request_start.append(on_request_start)
+        trace_config[0].on_request_chunk_sent.append(on_request_chunk_sent)
+        trace_config[0].on_request_end.append(on_request_end)
     else:
-        trace_config = None
+        trace_config = []
     if session == None:
-        session = await aiohttp.ClientSession(cookie_jar=cookie_jar, trace_configs=[trace_config]).__aenter__()
+        session = await aiohttp.ClientSession(cookie_jar=cookie_jar, trace_configs=trace_config).__aenter__()
 
 async def close_session():
     global session, tokens, cookie_jar

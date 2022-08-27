@@ -91,4 +91,5 @@ $ cf open 1698
 - [ ] Input testcases
 - [ ] Generate random testcase
 - [ ] Registration
+- [ ] View my solutions
 - [x] Login
