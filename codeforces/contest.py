@@ -285,13 +285,13 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
                     puts = lambda *args: None
                 else:
                     puts = ui.green
-        if not show_all and conf['only_goals'] and (not div or conf['contest_goals'][div[-1]] == 0):
-            puts = lambda *args: None
-
         elif solved_json:
             solved_str = "    "
         else:
             solved_str = ""
+
+        if not show_all and conf['only_goals'] and (len(div) == 0 or conf['contest_goals'][div[-1]] == 0):
+            puts = lambda *args: None
         contest_info = "{:04d} {:<3} {}{:<{width}} {} ({}){}{}{}".format(cid, div, solved_str, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, weekday, countdown, participants, width=conf['title_width'])
         puts(contest_info)
     if not upcoming:
