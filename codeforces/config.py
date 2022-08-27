@@ -14,6 +14,7 @@ DEFAULT_CONFIG = {
     'browser': 'google-chrome',
     'pager': 'less',
     'prog_id': 61,
+    'trace_requests': False,
     'only_goals': False,
     'hide_solved_contest': False,
     'lang': [

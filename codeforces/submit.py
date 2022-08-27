@@ -1,5 +1,4 @@
 from . import ui
-from . import _ws
 from . import _http
 from . import config
 from . import problem
@@ -41,7 +40,7 @@ async def async_submit(args):
         'programTypeId': str(config.conf['prog_id']),
     }
     try:
-        task = asyncio.create_task(_ws.message_receiver(ws_url, display_submit_result))
+        task = asyncio.create_task(_http.websockets(ws_url, display_submit_result))
         url = '/contest/{}/problem/{}?csrf_token={}'.format(cid, level.upper(), token['csrf'])
         form = aiohttp.FormData()
         for k, v in submit_form.items():

@@ -45,6 +45,7 @@ async def async_get(url, headers=None, csrf=False):
     if url.startswith('/'): url = CF_HOST + url
     result = None
     async with session.get(url, headers=headers) as response:
+        assert response.status == 200
         cookie_jar.save(file_path=config.cookie_path)
         return await response.text()
 
@@ -55,6 +56,7 @@ async def async_post(url, data, headers=None, csrf=False):
     if url.startswith('/'): url = CF_HOST + url
     result = None
     async with session.post(url, headers=headers, data=data) as response:
+        assert response.status == 200
         cookie_jar.save(file_path=config.cookie_path)
         return await response.text()
 
@@ -70,6 +72,18 @@ async def async_urlsopen(urls):
             tasks += [async_post(u['url'], u['data'], u['headers'], u['csrf'])]
     return await asyncio.gather(*tasks)
 
+async def on_request_start(session, trace_request_ctx, params):
+    trace_request_ctx.start = asyncio.get_event_loop().time()
+    print(session)
+    print("[*] Request start : {}".format(params))
+
+async def on_request_chunk_sent(session, trace_request_ctx, params):
+    print("[*] Request sent chunk : {}".format(params.chunk))
+
+async def on_request_end(session, trace_request_ctx, params):
+    elapsed = asyncio.get_event_loop().time() - trace_request_ctx.start
+    print("[*] Request end : {}".format(elapsed))
+
 async def open_session():
     global session, tokens, cookie_jar
     cookie_jar = aiohttp.CookieJar()
@@ -80,8 +94,15 @@ async def open_session():
     if path.isfile(config.token_path):
         with open(config.token_path, 'r') as f:
             tokens = json.load(f)
+    if config.conf['trace_requests']:
+        trace_config = aiohttp.TraceConfig()
+        trace_config.on_request_start.append(on_request_start)
+        trace_config.on_request_chunk_sent.append(on_request_chunk_sent)
+        trace_config.on_request_end.append(on_request_end)
+    else:
+        trace_config = None
     if session == None:
-        session = await aiohttp.ClientSession(cookie_jar=cookie_jar).__aenter__()
+        session = await aiohttp.ClientSession(cookie_jar=cookie_jar, trace_configs=[trace_config]).__aenter__()
 
 async def close_session():
     global session, tokens, cookie_jar
@@ -98,3 +119,19 @@ def update_tokens(csrf, ftaa, bfaa, uc, usmc):
     tokens = {'csrf':csrf[:32], 'ftaa':ftaa, 'bfaa':bfaa, 'uc':uc, 'usmc':usmc}
     with open(config.token_path, 'w') as f:
         json.dump(tokens, f)
+
+async def websockets(url, callback):
+    async with session.ws_connect(url) as ws:
+        finished = 2
+        ret = []
+        async for msg in ws:
+            if msg.type == aiohttp.WSMsgType.TEXT:
+                js = json.loads(msg.data)
+                js['text'] = json.loads(js['text'])
+                ret += [js]
+                finished = js['text']['d'][17]
+                if finished == 0:
+                    break
+            else:
+                break;
+        await callback(ret)
