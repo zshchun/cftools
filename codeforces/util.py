@@ -1,5 +1,6 @@
 import re
 from os import path, getcwd, sep
+from lxml import html
 
 def guess_cid(args):
     if 'cid' in args and args.cid:
@@ -29,3 +30,12 @@ def pop_element(t):
         text = t.text
         t.getparent().remove(t)
         return text
+
+def show_message(resp):
+    doc = html.fromstring(resp)
+    msg = ''
+    for lines in doc.xpath('.//script[@type="text/javascript" and not(@src)]'):
+        for l in lines.text.splitlines():
+            if l.find('Codeforces.showMessage("') != -1:
+                msg += l.split('"')[1]
+    return msg

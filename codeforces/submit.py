@@ -42,9 +42,7 @@ async def async_submit(args):
     try:
         task = asyncio.create_task(_http.websockets(ws_url, display_submit_result))
         url = '/contest/{}/problem/{}?csrf_token={}'.format(cid, level.upper(), token['csrf'])
-        form = aiohttp.FormData()
-        for k, v in submit_form.items():
-            form.add_field(k, v)
+        form = add_form_data(submit_form)
         form.add_field('sourceFile', open(filename, 'rb'), filename=filename)
         resp = await _http.async_post(url, form)
         doc = html.fromstring(resp)

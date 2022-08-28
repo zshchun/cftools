@@ -21,6 +21,7 @@ def main():
 
     _upcoming = subparsers.add_parser('upcoming', aliases=['u'], help="List upcoming contests", allow_abbrev=True)
     _upcoming.add_argument('-f', '--force',  action='store_true', help="Update cache")
+    _upcoming.add_argument('-a', '--all',  action='store_true', help="Show all contests")
     _upcoming.set_defaults(func=contest.list_upcoming)
 
     _solution = subparsers.add_parser('solution', aliases=['q'], help="Get problem's solutions", allow_abbrev=True)
@@ -32,6 +33,10 @@ def main():
     _info.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
     _info.add_argument('level', metavar='problem level', nargs='?', action='store', type=str)
     _info.set_defaults(func=contest.show_contest_info)
+
+    _register = subparsers.add_parser('register', aliases=['reg'], help="Show contest info")
+    _register.add_argument('cid', metavar='contestID', nargs='?', action='store', type=int)
+    _register.set_defaults(func=contest.register)
 
     _login = subparsers.add_parser('login', help="Sign in codeforces account")
     _login.set_defaults(func=account.login)

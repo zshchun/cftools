@@ -348,7 +348,7 @@ async def async_list_contest(args, upcoming=False):
     if upcoming:
         print("[+] Current or upcoming contests")
         upcoming = cur.execute('''SELECT cid, title, authors, start, length, participants FROM codeforces WHERE upcoming = 1 ORDER BY start;''')
-        show_contests(upcoming, upcoming=True)
+        show_contests(upcoming, show_all=args.all, upcoming=True)
     else:
         print("[+] Past contests")
         contests = cur.execute('''SELECT cid, title, authors, start, length, participants FROM codeforces WHERE upcoming = 0 ORDER BY start;''')
@@ -389,3 +389,40 @@ def race_contest(args):
         sleep(0.2)
         now = datetime.now().astimezone(tz=None)
     problem.parse_problems(args)
+
+def register(args):
+    asyncio.run(async_register(args))
+
+async def async_register(args):
+    if not 'cid' in args or not args.cid:
+        print("[!] Select a contestID")
+        return
+    try:
+        await _http.open_session()
+        print("[+] Registration for the contestID", args.cid)
+        url = 'https://codeforces.com/contestRegistration/' + str(args.cid)
+        resp = await _http.async_get(url)
+        doc = html.fromstring(resp)
+        title = doc.xpath('.//title')[0].text
+        print(title)
+        msg = util.show_message(resp)
+        if msg:
+            print('[!]', msg)
+            return
+        terms = doc.xpath('.//textarea[@class="terms" and @id="registrationTerms"]')[0].text
+        print(terms)
+        choice = input("Take part as individual participant? [y/N] ").lower()
+        if not choice in ['y', 'yes']: return
+        token = _http.get_tokens()
+        register_form = {
+            'csrf_token': token['csrf'],
+            'action': 'formSubmitted',
+            'takePartAs': 'personal',
+            'backUrl': '',
+        }
+        form = _http.add_form_data(register_form)
+        resp = await _http.async_post(url, form)
+        msg = util.show_message(resp)
+        if msg: print('[+]', msg)
+    finally:
+        await _http.close_session()

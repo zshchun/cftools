@@ -135,3 +135,9 @@ async def websockets(url, callback):
             else:
                 break;
         await callback(ret)
+
+def add_form_data(form_data):
+    form = aiohttp.FormData()
+    for k, v in form_data.items():
+        form.add_field(k, v)
+    return form
