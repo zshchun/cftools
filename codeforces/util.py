@@ -33,9 +33,7 @@ def pop_element(t):
 
 def show_message(resp):
     doc = html.fromstring(resp)
-    msg = ''
     for lines in doc.xpath('.//script[@type="text/javascript" and not(@src)]'):
         for l in lines.text.splitlines():
             if l.find('Codeforces.showMessage("') != -1:
-                msg += l.split('"')[1]
-    return msg
+                return l.split('"')[1]

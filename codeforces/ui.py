@@ -11,6 +11,7 @@ colors = {
     'nocolor': "\033[0m",
     'orange': "\033[33m", # yellow
     'violet': "\033[35m", # magenta
+    'gray': "\033[90m",
     'bright_red': "\033[91m",
     'bright_green': "\033[92m",
     'bright_yellow': "\033[93m",
