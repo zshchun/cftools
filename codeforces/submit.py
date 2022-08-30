@@ -41,6 +41,7 @@ async def async_submit(args):
     }
     try:
         task = asyncio.create_task(_http.websockets(ws_url, display_submit_result))
+        await asyncio.sleep(1.0)
         url = '/contest/{}/problem/{}?csrf_token={}'.format(cid, level.upper(), token['csrf'])
         form = _http.add_form_data(submit_form)
         form.add_field('sourceFile', open(filename, 'rb'), filename=filename)

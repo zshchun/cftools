@@ -12,7 +12,7 @@ import asyncio
 def find_source_files(_dir):
     exts = [k['ext'] for k in conf['lang']]
     if not exts: return
-    files = [_dir + sep + f for f in listdir(_dir) if path.isfile(f) and path.splitext(f)[-1].lstrip('.') in exts]
+    files = [_dir + sep + f for f in sorted(listdir(_dir)) if path.isfile(f) and path.splitext(f)[-1].lstrip('.') in exts]
     return files
 
 def prepare_problem_dir(cid, level=None):
