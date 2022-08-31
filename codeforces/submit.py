@@ -41,7 +41,6 @@ async def async_submit(args):
     }
     try:
         task = asyncio.create_task(_http.websockets(ws_url, display_submit_result))
-        await asyncio.sleep(1.0)
         url = '/contest/{}/problem/{}?csrf_token={}'.format(cid, level.upper(), token['csrf'])
         form = _http.add_form_data(submit_form)
         form.add_field('sourceFile', open(filename, 'rb'), filename=filename)
@@ -51,9 +50,45 @@ async def async_submit(args):
             if e.text == 'You have submitted exactly the same code before':
                 print("[!] " + e.text)
                 return
-        await task
+
+        status = parse_submit_status(resp)
+        assert status[0]['url'].split('/')[-1] == level.upper()
+        submission_id = status[0]['id']
+        done, pending = await asyncio.wait([task], timeout=5)
+        if pending:
+            while True:
+                status_url = '/contest/{}/my'.format(cid, token['csrf'])
+                resp = await _http.async_get(status_url)
+                status = parse_submit_status(resp)
+                status = [st for st in status if st['id'] == submission_id][0]
+                if ' '.join(status['verdict'].split()[:2]) in ['Wrong answer', 'Runtime error', 'Time limit', 'Hacked', 'Idleness limit', 'Memory limit']:
+                    ui.red(status['verdict'])
+                    print("{}, {}".format(status['time'], status['mem']))
+                    break
+                elif status['verdict'].startswith('Wrong Answer'):
+                    ui.green(status['verdict'])
+                    print("{}, {}".format(status['time'], status['mem']))
+                    break
+                else:
+                    print("Status:", status['verdict'])
+                await asyncio.sleep(3)
     finally:
         await _http.close_session()
+
+def parse_submit_status(html_page):
+    ret = []
+    doc = html.fromstring(html_page)
+    tr = doc.xpath('.//table[@class="status-frame-datatable"]/tr[@class="last-row"]')
+    for t in tr:
+        td = t.xpath('.//td')
+        submission_id = ''.join(td[0].itertext()).strip()
+        url = td[3].xpath('.//a[@href]')[0].get('href')
+        verdict = ''.join(td[5].itertext()).strip()
+        prog_time = td[6].text.strip().replace('\xa0', ' ')
+        prog_mem = td[7].text.strip().replace('\xa0', ' ')
+        ret.append({ 'id':submission_id, 'url':url, 'verdict':verdict, 'time':prog_time, 'mem':prog_mem })
+    return ret
+
 
 async def display_submit_result(result):
     update = False

@@ -140,6 +140,9 @@ def generate_source(args):
     ext = path.splitext(template_path)[-1]
     assert ext != "", "[!] File extension not found"
     new_path = prob_dir + sep + level.lower() + ext
+    if path.exists(new_path):
+        print("[!] File exists")
+        return
     inf = open(template_path, 'r')
     outf = open(new_path, 'w')
     for line in inf:

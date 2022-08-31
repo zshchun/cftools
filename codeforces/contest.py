@@ -12,12 +12,14 @@ from .constants import *
 from .config import conf, db
 from time import time, sleep
 from datetime import datetime, timezone, timedelta
-from os import path, listdir, system
+from os import path, listdir, system, makedirs, sep
 from sys import argv, exit
 from operator import itemgetter
 
 async def async_view_submission(sid, prefix=''):
-    json_path = "{}/{}-{}.json".format(path.expanduser(conf['cache_dir']), prefix, sid)
+    cache_dir = path.expanduser(conf['cache_dir']) + sep + prefix
+    makedirs(cache_dir, exist_ok=True)
+    json_path = cache_dir + sep + sid + '.json'
     if path.isfile(json_path):
         res = open(json_path, 'r').read()
     else:
@@ -25,7 +27,7 @@ async def async_view_submission(sid, prefix=''):
         open(json_path, 'w').write(res)
     js = json.loads(res)
     lang_ext = js['prettifyClass'][5:] if js['prettifyClass'].startswith('lang-') else js['prettifyClass']
-    source_path = "{}/{}-{}.{}".format(path.expanduser(conf['cache_dir']), prefix, sid, lang_ext)
+    source_path = cache_dir + sep + sid + '.' + lang_ext
     open(source_path, 'w').write(js['source'])
     if "pager" in conf:
         system(conf["pager"] + ' "' + source_path + '"')
@@ -78,9 +80,11 @@ async def async_get_solutions(args):
                 ms = td[6].text.strip()
                 mem = td[7].text.strip()
                 print("{} {:9s} {} {:<15s} {:>7s} {:>8s} ".format(level, sid, name, lang, ms, mem), end='')
-                choice = input("View? [Y/n] ").lower()
-                if choice == "yes" or choice == 'y' or choice == '':
-                    r = await async_view_submission(sid, str(cid)+level)
+                choice = input("View? [Ynq] ").lower()
+                if choice in ["yes", 'y', '']:
+                    r = await async_view_submission(sid, str(cid)+level.lower())
+                elif choice in ["quit", 'q']:
+                    return
     finally:
         await _http.close_session()
 
@@ -303,10 +307,12 @@ def list_contest(args, upcoming=False):
 async def async_list_contest(args, upcoming=False):
     solved_json = None
     cur = db.cursor()
-    if args.force:
+    update = False;
+    if 'force' in args and args.force:
         update = True;
-    else:
-        update = False;
+    update_solved = False
+    if 'solved' in args and args.solved:
+        update_solved = True
 #    last_modified = int(cur.execute('''SELECT strftime('%s', last_modified) FROM modifications WHERE site = 'codeforces';''').fetchone()[0])
     now = int(time())
     row_count = cur.execute('''SELECT COUNT(*) FROM codeforces''').fetchone()[0]
@@ -321,9 +327,10 @@ async def async_list_contest(args, upcoming=False):
             now = datetime.now().astimezone(tz=None)
             if contest_end < now:
                 update = True
+                update_solved = True
 
     await _http.open_session()
-    if ('solved' in args and args.solved) or not path.isfile(config.solved_path):
+    if update_solved or not path.isfile(config.solved_path):
         solved_json = await async_get_solved_count()
     else:
         with open(config.solved_path, 'r') as f:
@@ -338,10 +345,10 @@ async def async_list_contest(args, upcoming=False):
         for page in pages:
             doc = html.fromstring(page)
             table = doc.xpath('.//div[@class="datatable"]')
-            if count_contests(table[1]) == 0:
-                print("[!] Contest is running")
-                break
             parse_list(table[0], upcoming=1, write_db=True)
+            if count_contests(table[1]) == 0:
+                print("[!] Contest is running or countdown")
+                break
             parse_list(table[1], write_db=True)
     await _http.close_session()
 

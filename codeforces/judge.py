@@ -3,11 +3,13 @@ from . import ui
 from .util import guess_cid
 from os import listdir, path, unlink, sep
 from sys import exit
+from time import time
 import subprocess
 
 def compile_code(src_path, run_path):
 # TODO support other languages
 # TODO support template strings
+# TODO memory usage
     print("[+] Compile {}".format(src_path))
     proc = subprocess.run(["g++", "-O2", "-o", run_path, src_path], capture_output=True)
     if proc.returncode != 0:
@@ -43,11 +45,13 @@ def test(args):
         output_file = d + sep + 'ans' + f[2:]
         if not path.isfile(output_file):
             continue
+        start_time = time()
         proc = subprocess.Popen([run_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         inputs = open(in_file, "rb").read()
         proc.stdin.write(inputs)
         try:
             outputs, error = proc.communicate(timeout=5)
+            end_time = time()
             expected_outputs = open(output_file, "rb").read()
             if proc.returncode != 0:
                 print("[!] Failed with exit code : {}".format(proc.returncode))
@@ -71,9 +75,9 @@ def test(args):
                     report += ui.setcolor('green', o2.ljust(20, ' ')) + '\n'
             if same:
                 ac += 1
-                ui.green("Passed #{}".format(idx))
+                print(ui.setcolor("green", "Passed #"+str(idx)), ui.setcolor("gray", "... {:.3f}s".format(end_time-start_time)))
             else:
-                ui.red("Failed #{}".format(idx))
+                print(ui.setcolor("red", "Failed #"+str(idx)), ui.setcolor("gray", "... {:.3f}s".format(end_time-start_time)))
                 ui.white("=======  IN #{:d} =======".format(idx))
                 print(inputs.decode())
                 ui.white("======= OUT #{:d} =======".format(idx))
