@@ -167,9 +167,9 @@ def show_contest_info(args):
             return
         print("[+] Show contest info")
         if level:
-            print("{} {} {}".format(cid, c[0], level.upper()))
+            print("{} {} {}".format(c[0], cid, level.upper()))
         else:
-            print("{} {}".format(cid, c[0]))
+            print("{} {}".format(c[0], cid))
         print("{}/contest/{}".format(CF_HOST, cid))
     else:
         print("[!] ContestID is empty")

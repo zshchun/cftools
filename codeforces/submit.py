@@ -56,21 +56,23 @@ async def async_submit(args):
         submission_id = status[0]['id']
         done, pending = await asyncio.wait([task], timeout=5)
         if pending:
+            #pending.cancel()
             while True:
                 status_url = '/contest/{}/my'.format(cid, token['csrf'])
                 resp = await _http.async_get(status_url)
-                status = parse_submit_status(resp)
-                status = [st for st in status if st['id'] == submission_id][0]
+                status = parse_submit_status(resp)[0]
+#                status = [st for st in status if st['id'] == submission_id][0]
                 if ' '.join(status['verdict'].split()[:2]) in ['Wrong answer', 'Runtime error', 'Time limit', 'Hacked', 'Idleness limit', 'Memory limit']:
                     ui.red(status['verdict'])
                     print("{}, {}".format(status['time'], status['mem']))
                     break
-                elif status['verdict'].startswith('Wrong Answer'):
+                elif status['verdict'].startswith('Accepted'):
                     ui.green(status['verdict'])
                     print("{}, {}".format(status['time'], status['mem']))
                     break
                 else:
                     print("Status:", status['verdict'])
+                    raise Exception('unknown status')
                 await asyncio.sleep(3)
     finally:
         await _http.close_session()
@@ -78,7 +80,7 @@ async def async_submit(args):
 def parse_submit_status(html_page):
     ret = []
     doc = html.fromstring(html_page)
-    tr = doc.xpath('.//table[@class="status-frame-datatable"]/tr[@class="last-row"]')
+    tr = doc.xpath('.//table[@class="status-frame-datatable"]/tr[@data-submission-id]')
     for t in tr:
         td = t.xpath('.//td')
         submission_id = ''.join(td[0].itertext()).strip()
@@ -88,7 +90,6 @@ def parse_submit_status(html_page):
         prog_mem = td[7].text.strip().replace('\xa0', ' ')
         ret.append({ 'id':submission_id, 'url':url, 'verdict':verdict, 'time':prog_time, 'mem':prog_mem })
     return ret
-
 
 async def display_submit_result(result):
     update = False
