@@ -1,8 +1,8 @@
-from . import ui
 from . import _http
 from . import config
 from . import problem
 from . import contest
+from .ui import *
 from .util import *
 from time import time
 from os import path
@@ -63,16 +63,15 @@ async def async_submit(args):
                 status = parse_submit_status(resp)[0]
 #                status = [st for st in status if st['id'] == submission_id][0]
                 if ' '.join(status['verdict'].split()[:2]) in ['Wrong answer', 'Runtime error', 'Time limit', 'Hacked', 'Idleness limit', 'Memory limit']:
-                    ui.red(status['verdict'])
+                    print(RED(status['verdict']))
                     print("{}, {}".format(status['time'], status['mem']))
                     break
                 elif status['verdict'].startswith('Accepted'):
-                    ui.green(status['verdict'])
+                    print(GREEN(status['verdict']))
                     print("{}, {}".format(status['time'], status['mem']))
                     break
                 else:
                     print("Status:", status['verdict'])
-                    raise Exception('unknown status')
                 await asyncio.sleep(3)
     finally:
         await _http.close_session()
@@ -110,22 +109,22 @@ async def display_submit_result(result):
         date2 = d[14]
         lang_id = d[16]
         if msg == "OK":
-            puts = ui.green
+            color = GREEN
             msg = 'Accepted'
             update = True
         elif msg == "WRONG_ANSWER":
             msg = 'Wrong Answer'
-            puts = ui.red
+            color = RED
         elif msg == "TIME_LIMIT_EXCEEDED":
             msg = 'Time Limit Exceed'
-            puts = ui.red
+            color = RED
         elif msg == "RUNTIME_ERROR":
             msg = 'Runtime Error'
-            puts = ui.blue
+            color = BLUE
         else:
-            puts = print
-        puts("[+] [{}] {}".format(cid, msg))
-        puts("[+] Test Cases {}/{}, {} ms, {} KB".format(passed, testcases, ms, mem//1024))
+            color = lambda msg: msg
+        print(color("[+] [{}] {}".format(cid, msg)))
+        print(color("[+] Test Cases {}/{}, {} ms, {} KB".format(passed, testcases, ms, mem//1024)))
     if update:
         await asyncio.sleep(1.5)
         await contest.async_get_solved_count()

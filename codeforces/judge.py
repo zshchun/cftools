@@ -1,5 +1,5 @@
 from . import problem
-from . import ui
+from .ui import *
 from .util import guess_cid
 from os import listdir, path, unlink, sep
 from sys import exit
@@ -17,7 +17,7 @@ def compile_code(src_path, run_path):
             print(proc.stdout.decode())
         if proc.stderr:
             print(proc.stderr.decode())
-        ui.red("[!] Compile error!")
+        print(RED("[!] Compile error!"))
         exit(1)
 
 def test(args):
@@ -71,21 +71,21 @@ def test(args):
                     continue
                 else:
                     same = False
-                    report += ui.setcolor('red', o1.ljust(20, ' '))
-                    report += ui.setcolor('green', o2.ljust(20, ' ')) + '\n'
+                    report += RED(o1.ljust(20, ' '))
+                    report += GREEN(o2.ljust(20, ' ')) + '\n'
             if same:
                 ac += 1
-                print(ui.setcolor("green", "Passed #"+str(idx)), ui.setcolor("gray", "... {:.3f}s".format(end_time-start_time)))
+                print(GREEN("Passed #"+str(idx)), GRAY("... {:.3f}s".format(end_time-start_time)))
             else:
-                print(ui.setcolor("red", "Failed #"+str(idx)), ui.setcolor("gray", "... {:.3f}s".format(end_time-start_time)))
-                ui.white("=======  IN #{:d} =======".format(idx))
+                print(RED("Failed #"+str(idx)), GRAY("... {:.3f}s".format(end_time-start_time)))
+                print(WHITE("=======  IN #{:d} =======".format(idx)))
                 print(inputs.decode())
-                ui.white("======= OUT #{:d} =======".format(idx))
+                print(WHITE("======= OUT #{:d} =======".format(idx)))
                 print(report)
         except subprocess.TimeoutExpired:
             proc.kill()
             outputs, error = proc.communicate()
-            ui.red("[!] Timeout!")
+            print(RED("[!] Timeout!"))
             if outputs:
                 print(outputs.decode())
             if error:
@@ -93,9 +93,9 @@ def test(args):
         idx += 1
     total = len(input_files)
     if total == 0:
-        ui.red("[!] There is no testcases")
+        print(RED("[!] There is no testcases"))
     elif total == ac:
-        ui.green("[{}/{}] Accepted".format(ac, total))
+        print(GREEN("[{}/{}] Accepted".format(ac, total)))
     else:
-        ui.red("[{}/{}] Wrong Answer".format(ac, total))
+        print(RED("[{}/{}] Wrong Answer".format(ac, total)))
     unlink(run_path)

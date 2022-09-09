@@ -6,7 +6,7 @@ from lxml import html, etree
 from . import util
 from . import _http
 from . import config
-from . import ui
+from .ui import *
 from . import problem
 from .constants import *
 from .config import conf, db
@@ -70,7 +70,7 @@ async def async_get_solutions(args):
                 user['title'] = a.get('title')
                 user['name'] = ''.join(a.itertext()).strip()
                 c = user['class'].split('-')[1]
-                name = ui.setcolor(c, user['name'].ljust(20))
+                name = setcolor(c, user['name'].ljust(20))
                 prob_title = td[3].xpath('.//a')[0].text.strip()
                 level = prob_title.split('-')[0].strip()
                 lang = td[4].text.strip()
@@ -286,16 +286,16 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
             if len(div) > 0 and solved_cnt > 0 and (solved_cnt == prob_cnt or solved_cnt >= conf['contest_goals'][div[-1]]):
                 solved_contests += 1
                 if not show_all and conf['hide_solved_contest']:
-                    puts = lambda *args: None
+                    puts = lambda msg: None
                 else:
-                    puts = ui.green
+                    puts = lambda msg: print(GREEN(msg))
         elif solved_json:
             solved_str = "    "
         else:
             solved_str = ""
 
         if not show_all and conf['only_goals'] and (len(div) == 0 or conf['contest_goals'][div[-1]] == 0):
-            puts = lambda *args: None
+            puts = lambda msg: None
         contest_info = "{:04d} {:<3} {}{:<{width}} {} ({}){}{}{}".format(cid, div, solved_str, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, weekday, countdown, participants, width=conf['title_width'])
         puts(contest_info)
     if not upcoming:
@@ -391,8 +391,7 @@ def race_contest(args):
         h = delta // 3600
         m = delta // 60 % 60
         s = delta % 60
-        fmt = ui.setcolor('green', " {:d}:{:02d}:{:02d}".format(h, m, s))
-        ui.redraw(fmt)
+        redraw(GREEN(" {:d}:{:02d}:{:02d}".format(h, m, s)))
         sleep(0.2)
         now = datetime.now().astimezone(tz=None)
     problem.parse_problems(args)

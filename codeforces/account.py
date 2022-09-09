@@ -1,5 +1,5 @@
 from . import _http
-from . import ui
+from .ui import *
 from random import choice
 from getpass import getpass
 from lxml import html, etree
@@ -54,8 +54,8 @@ async def async_login(args):
     html_data = await _http.async_post(login_url, login_data)
     await _http.close_session()
     if check_login(html_data):
-        ui.green("[+] Login successful")
+        print(GREEN("[+] Login successful"))
         uc, usmc, _, _ = extract_channel(html_data)
         _http.update_tokens(csrf_token, ftaa, bfaa, uc, usmc)
     else:
-        ui.red("[!] Login failed")
+        print(RED("[!] Login failed"))

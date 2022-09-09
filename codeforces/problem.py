@@ -1,7 +1,7 @@
 from . import _http
-from . import ui
 from . import config
 from . import contest
+from .ui import *
 from .util import guess_cid, pop_element
 from time import time, sleep
 from os import listdir, path, sep, makedirs
@@ -109,7 +109,7 @@ async def async_parse_problems(args):
         in_tc  = extract_testcases(typo.xpath('.//div[@class="input"]'))
         out_tc = extract_testcases(typo.xpath('.//div[@class="output"]'))
         note = typo.xpath('.//div[@class="note"]')
-        ui.green('[+] ' + title)
+        print(GREEN('[+] ' + title))
         print('[+] Limit: {}s {} MB'.format(time_limit, memory_limit))
         print('[+] DESCRIPTION:\n{}'.format(desc))
         print('[+] INPUT SPEC:\n{}'.format(in_spec))
@@ -147,4 +147,4 @@ def generate_source(args):
     outf = open(new_path, 'w')
     for line in inf:
         outf.write(line)
-    ui.green('[+] Generate {}'.format(new_path))
+    print(GREEN('[+] Generate {}'.format(new_path)))
