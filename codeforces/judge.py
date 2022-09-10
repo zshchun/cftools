@@ -38,26 +38,21 @@ def test(args):
     input_files = problem.find_input_files(prob_dir)
     compile_code(filename, run_path)
     ac = 0
-    idx = 1
+    idx = 0
     for in_file in input_files:
+        idx += 1
         d = path.dirname(in_file)
         f = path.basename(in_file)
         output_file = d + sep + 'ans' + f[2:]
         if not path.isfile(output_file):
             continue
         start_time = time()
-        proc = subprocess.Popen([run_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         inputs = open(in_file, "rb").read()
-        proc.stdin.write(inputs)
         try:
-            outputs, error = proc.communicate(timeout=5)
+            proc = subprocess.run([run_path], input=inputs, check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=5)
+            outputs = proc.stdout
             end_time = time()
             expected_outputs = open(output_file, "rb").read()
-            if proc.returncode != 0:
-                print("[!] Failed with exit code : {}".format(proc.returncode))
-                if outputs: print(outputs.decode())
-                if error: print(error.decode())
-                continue
             same = True
             report = ''
             a = outputs.decode().splitlines()
@@ -82,20 +77,16 @@ def test(args):
                 print(inputs.decode())
                 print(WHITE("======= OUT #{:d} =======".format(idx)))
                 print(report)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            outputs, error = proc.communicate()
-            print(RED("[!] Timeout!"))
-            if outputs:
-                print(outputs.decode())
-            if error:
-                print(error.decode())
-        idx += 1
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as err:
+            print(RED("Failed #{}".format(idx)))
+            if err.stdout: print(e.stdout.decode())
+            print(GRAY(str(err)))
     total = len(input_files)
+    ac_text = "[{}/{}]".format(ac, total)
     if total == 0:
         print(RED("[!] There is no testcases"))
     elif total == ac:
-        print(GREEN("[{}/{}] Accepted".format(ac, total)))
+        print(ac_text, GREEN("Accepted"))
     else:
-        print(RED("[{}/{}] Wrong Answer".format(ac, total)))
+        print(ac_text, RED("Wrong Answer"))
     unlink(run_path)
