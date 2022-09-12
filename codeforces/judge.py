@@ -67,8 +67,9 @@ def test(args):
                     continue
                 else:
                     same = False
-                    report += RED(o1.ljust(max_width, ' '))
-                    report += GREEN(o2.ljust(max_width, ' ')) + '\n'
+                    padding = ' ' * (max_width - len(o1))
+                    report += RED(o1) + padding
+                    report += GREEN(o2) + '\n'
             if same:
                 ac += 1
                 print(GREEN("Passed #"+str(idx)), GRAY("... {:.3f}s".format(end_time-start_time)))

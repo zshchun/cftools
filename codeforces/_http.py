@@ -1,9 +1,12 @@
 from . import config
 from .constants import *
+from lxml import html, etree
 from os import path
 import asyncio
 import aiohttp
+import pyaes
 import json
+import re
 
 default_headers = {
     'Accept': '*/*',
@@ -12,7 +15,11 @@ default_headers = {
 
 session = None
 tokens = {}
-cookie_jar = {}
+cookie_jar = None
+
+class RCPCRedirectionError(Exception):
+    def __init__(self):
+        super().__init__("RCPC redirection detected")
 
 def add_header(newhdr, headers=default_headers):
     headers.update(newhdr)
@@ -38,16 +45,47 @@ def GET(url, headers=None, csrf=False):
 def POST(url, data, headers=None, csrf=False):
     return {'method':async_post, 'url':url, 'data':data, 'headers':headers, 'csrf':csrf}
 
+def check_rcpc(html_data):
+    doc = html.fromstring(html_data)
+    aesmin = doc.xpath(".//script[@type='text/javascript' and @src='/aes.min.js']")
+    if len(aesmin) > 0:
+        print("[+] RCPC redirection detected")
+        js = doc.xpath(".//script[not(@type)]")
+        assert len(js) > 0
+        keys = re.findall(r'[abc]=toNumbers\([^\)]*', js[0].text)
+        for k in keys:
+            if k[0] == 'a':
+                key = bytes.fromhex(k.split('"')[1])
+            elif k[0] == 'b':
+                iv = bytes.fromhex(k.split('"')[1])
+            elif k[0] == 'c':
+                ciphertext = bytes.fromhex(k.split('"')[1])
+        assert len(key) == 16 and len(iv) == 16 and len(ciphertext) == 16, 'AES decryption error'
+        c = pyaes.AESModeOfOperationCBC(key, iv=iv)
+        plaintext = c.decrypt(ciphertext)
+        rcpc = plaintext.hex()
+        cookie = { 'RCPC':rcpc }
+        cookie_jar.update_cookies(cookie)
+        cookie_jar.save(file_path=config.cookie_path)
+        raise RCPCRedirectionError()
+
 async def async_get(url, headers=None, csrf=False):
     if headers == None: headers = default_headers
     if csrf and 'csrf' in tokens:
         headers = add_header({'X-Csrf-Token': tokens['csrf']})
     if url.startswith('/'): url = CF_HOST + url
     result = None
-    async with session.get(url, headers=headers) as response:
-        assert response.status == 200
-        cookie_jar.save(file_path=config.cookie_path)
-        return await response.text()
+    try:
+        async with session.get(url, headers=headers) as response:
+            assert response.status == 200
+            check_rcpc(await response.text())
+            cookie_jar.save(file_path=config.cookie_path)
+            return await response.text()
+    except RCPCRedirectionError:
+        async with session.get(url, headers=headers) as response:
+            assert response.status == 200
+            cookie_jar.save(file_path=config.cookie_path)
+            return await response.text()
 
 async def async_post(url, data, headers=None, csrf=False):
     if headers == None: headers = default_headers
@@ -55,10 +93,17 @@ async def async_post(url, data, headers=None, csrf=False):
         headers = add_header({'X-Csrf-Token': tokens['csrf']})
     if url.startswith('/'): url = CF_HOST + url
     result = None
-    async with session.post(url, headers=headers, data=data) as response:
-        assert response.status == 200
-        cookie_jar.save(file_path=config.cookie_path)
-        return await response.text()
+    try:
+        async with session.post(url, headers=headers, data=data) as response:
+            assert response.status == 200
+            check_rcpc(await response.text())
+            cookie_jar.save(file_path=config.cookie_path)
+            return await response.text()
+    except RCPCRedirectionError:
+        async with session.post(url, headers=headers, data=data) as response:
+            assert response.status == 200
+            cookie_jar.save(file_path=config.cookie_path)
+            return await response.text()
 
 def urlsopen(urls):
     return asyncio.run(async_urlsopen(urls))

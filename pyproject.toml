@@ -1,3 +1,3 @@
 [build-system]
-requires = ["setuptools>=61.0", "tomli", "lxml", "pycryptodome", "aiohttp"]
+requires = ["setuptools>=61.0", "tomli", "lxml", "aiohttp", "pyaes"]
 build-backend = "setuptools.build_meta"
