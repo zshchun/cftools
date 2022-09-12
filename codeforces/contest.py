@@ -48,8 +48,7 @@ async def async_get_solutions(args):
             'judgedTestCount':'', \
             'participantSubstring':'', \
     }
-#        order = 'BY_JUDGED_DESC'
-    order = 'BY_ARRIVED_ASC'
+    order = 'BY_JUDGED_ASC'
     await _http.open_session()
     try:
         for page in range(1,20):
@@ -70,7 +69,10 @@ async def async_get_solutions(args):
                 user['title'] = a.get('title')
                 user['name'] = ''.join(a.itertext()).strip()
                 c = user['class'].split('-')[1]
-                name = setcolor(c, user['name'].ljust(20))
+                if c != 'black':
+                    name = setcolor(c, user['name'].ljust(20))
+                else:
+                    name = user['name'].ljust(20)
                 prob_title = td[3].xpath('.//a')[0].text.strip()
                 level = prob_title.split('-')[0].strip()
                 lang = td[4].text.strip()

@@ -79,7 +79,7 @@ def test(args):
                 print(report)
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as err:
             print(RED("Failed #{}".format(idx)))
-            if err.stdout: print(e.stdout.decode())
+            if err.stdout: print(err.stdout.decode())
             print(GRAY(str(err)))
     total = len(input_files)
     ac_text = "[{}/{}]".format(ac, total)
