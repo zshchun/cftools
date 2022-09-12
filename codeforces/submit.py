@@ -53,26 +53,31 @@ async def async_submit(args):
 
         status = parse_submit_status(resp)
         assert status[0]['url'].split('/')[-1] == level.upper()
-        submission_id = status[0]['id']
+        submit_id = status[0]['id']
         done, pending = await asyncio.wait([task], timeout=5)
-        if pending:
-            #pending.cancel()
+        if task in done:
+            accepted = done.pop().result()
+            if accepted:
+                await contest.async_get_solved_count()
+        else:
+            task.cancel()
             while True:
                 status_url = '/contest/{}/my'.format(cid, token['csrf'])
                 resp = await _http.async_get(status_url)
-                status = parse_submit_status(resp)[0]
-#                status = [st for st in status if st['id'] == submission_id][0]
+                status = parse_submit_status(resp)
+                status = [st for st in status if st['id'] == submit_id][0]
                 if ' '.join(status['verdict'].split()[:2]) in ['Wrong answer', 'Runtime error', 'Time limit', 'Hacked', 'Idleness limit', 'Memory limit']:
-                    print(RED(status['verdict']))
-                    print("{}, {}".format(status['time'], status['mem']))
+                    print(RED("[+] [{}] {}".format(status['id'], status['verdict'])))
+                    print(RED("[+] {} ms, {} KB".format(status['time'], status['mem'])))
                     break
                 elif status['verdict'].startswith('Accepted'):
-                    print(GREEN(status['verdict']))
-                    print("{}, {}".format(status['time'], status['mem']))
+                    print(GREEN("[+] [{}] {}".format(status['id'], status['verdict'])))
+                    print(GREEN("[+] {} ms, {} KB".format(status['time'], status['mem'])))
+                    await contest.async_get_solved_count()
                     break
                 else:
                     print("Status:", status['verdict'])
-                await asyncio.sleep(3)
+                await asyncio.sleep(2)
     finally:
         await _http.close_session()
 
@@ -85,19 +90,16 @@ def parse_submit_status(html_page):
         submission_id = ''.join(td[0].itertext()).strip()
         url = td[3].xpath('.//a[@href]')[0].get('href')
         verdict = ''.join(td[5].itertext()).strip()
-        prog_time = td[6].text.strip().replace('\xa0', ' ')
-        prog_mem = td[7].text.strip().replace('\xa0', ' ')
+        prog_time = td[6].text.strip().replace('\xa0', ' ').split()[0]
+        prog_mem = td[7].text.strip().replace('\xa0', ' ').split()[0]
         ret.append({ 'id':submission_id, 'url':url, 'verdict':verdict, 'time':prog_time, 'mem':prog_mem })
     return ret
 
 async def display_submit_result(result):
-    update = False
-#    submits = []
+    accepted = False
     for r in result:
         d = r['text']['d']
         submit_id = d[1]
-#        if submit_id in submits: continue
-#        submits.append(submit_id)
         cid = d[2]
         title = d[4] # "TESTS"
         msg = d[6]
@@ -111,7 +113,7 @@ async def display_submit_result(result):
         if msg == "OK":
             color = GREEN
             msg = 'Accepted'
-            update = True
+            accepted = True
         elif msg == "WRONG_ANSWER":
             msg = 'Wrong Answer'
             color = RED
@@ -123,8 +125,6 @@ async def display_submit_result(result):
             color = BLUE
         else:
             color = lambda msg: msg
-        print(color("[+] [{}] {}".format(cid, msg)))
+        print(color("[+] [{}] {}".format(submit_id, msg)))
         print(color("[+] Test Cases {}/{}, {} ms, {} KB".format(passed, testcases, ms, mem//1024)))
-    if update:
-        await asyncio.sleep(1.5)
-        await contest.async_get_solved_count()
+    return accepted
