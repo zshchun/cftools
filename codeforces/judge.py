@@ -58,16 +58,17 @@ def test(args):
             a = outputs.decode().splitlines()
             b = expected_outputs.decode().splitlines()
             max_length = max(len(a), len(b))
+            max_width = max(20, len(max(a+b, key=len))+1)
             a += [''] * (max_length - len(a))
             b += [''] * (max_length - len(b))
             for o1, o2 in zip(a, b):
                 if o1.strip() == o2.strip():
-                    report += o1.ljust(20, ' ') * 2 + '\n'
+                    report += o1.ljust(max_width, ' ') * 2 + '\n'
                     continue
                 else:
                     same = False
-                    report += RED(o1.ljust(20, ' '))
-                    report += GREEN(o2.ljust(20, ' ')) + '\n'
+                    report += RED(o1.ljust(max_width, ' '))
+                    report += GREEN(o2.ljust(max_width, ' ')) + '\n'
             if same:
                 ac += 1
                 print(GREEN("Passed #"+str(idx)), GRAY("... {:.3f}s".format(end_time-start_time)))

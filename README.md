@@ -78,6 +78,7 @@ $ cf open 1698
 - [ ] Support user-agent
 - [x] Support cookies
 - [ ] Support RCPC token
+- [ ] Support gym
 - [x] Support pip
 - [x] Color interface
 - [ ] Show streak stats

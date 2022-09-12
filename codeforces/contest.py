@@ -16,7 +16,8 @@ from os import path, listdir, system, makedirs, sep
 from sys import argv, exit
 from operator import itemgetter
 
-async def async_view_submission(sid, prefix=''):
+async def async_view_submission(sid, lang, prefix=''):
+    extentions = {'C++':'cpp', 'Clang++':'cpp', 'C11':'c', 'Kotlin':'kt', 'Java':'java', 'Python':'py', 'PyPy':'py'}
     cache_dir = path.expanduser(conf['cache_dir']) + sep + prefix
     makedirs(cache_dir, exist_ok=True)
     json_path = cache_dir + sep + sid + '.json'
@@ -26,7 +27,11 @@ async def async_view_submission(sid, prefix=''):
         res = await _http.async_post("/data/submitSource", { 'submissionId':sid })
         open(json_path, 'w').write(res)
     js = json.loads(res)
-    lang_ext = js['prettifyClass'][5:] if js['prettifyClass'].startswith('lang-') else js['prettifyClass']
+    lang_ext = ''
+    for k, v in extentions.items():
+        if lang.find(k) != -1:
+            lang_ext = v
+            break
     source_path = cache_dir + sep + sid + '.' + lang_ext
     open(source_path, 'w').write(js['source'])
     if "pager" in conf:
@@ -84,7 +89,7 @@ async def async_get_solutions(args):
                 print("{} {:9s} {} {:<15s} {:>7s} {:>8s} ".format(level, sid, name, lang, ms, mem), end='')
                 choice = input("View? [Ynq] ").lower()
                 if choice in ["yes", 'y', '']:
-                    r = await async_view_submission(sid, str(cid)+level.lower())
+                    r = await async_view_submission(sid, lang, str(cid)+level.lower())
                 elif choice in ["quit", 'q']:
                     return
     finally:
