@@ -75,7 +75,7 @@ $ cf open 1698
 - [x] Race contest
 - [x] Local compile
 - [x] Check testcase
-- [ ] Support user-agent
+- [x] Support user-agent
 - [x] Support cookies
 - [x] Support RCPC token
 - [ ] Support gym

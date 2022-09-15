@@ -11,6 +11,7 @@ import re
 default_headers = {
     'Accept': '*/*',
     'Accept-Encoding': 'gzip',
+    'User-Agent': config.conf['user_agent'],
     }
 
 session = None

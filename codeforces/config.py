@@ -1,5 +1,6 @@
 import tomli
 import sqlite3
+from . import __version__
 from os import makedirs, path, environ
 from datetime import timezone, timedelta
 
@@ -17,6 +18,7 @@ DEFAULT_CONFIG = {
     'trace_requests': False,
     'only_goals': False,
     'hide_solved_contest': False,
+    'user_agent': 'cftools/' + __version__,
     'lang': [
         {'ext': "cpp", 'cmd': "g++ -O2", },
         {'ext': "py", 'cmd': "python3", },
