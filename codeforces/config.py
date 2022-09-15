@@ -91,7 +91,7 @@ def loads():
     if not path.isfile(db_path):
         db = sqlite3.connect(db_path)
         cur = db.cursor()
-        cur.execute('''CREATE TABLE codeforces (cid integer primary key, title varchar, authors varchar, start varchar, length varchar, participants integer, upcoming integer);''')
+        cur.execute('''CREATE TABLE codeforces (cid integer primary key, title varchar, authors varchar, start varchar, length varchar, participants integer, registration integer, upcoming integer);''')
 #        cur.execute('''CREATE TABLE modifications (site TEXT NOT NULL PRIMARY KEY ON CONFLICT REPLACE, last_modified TIMESTAMP DEFAULT current_timestamp);''')
 #        cur.execute('''INSERT INTO modifications (site) VALUES ('codeforces');''')
 #        cur.execute('''CREATE TRIGGER update_time_codeforces AFTER UPDATE ON codeforces BEGIN UPDATE modifications SET last_modified = current_timestamp WHERE site = 'codeforces'; END;''')

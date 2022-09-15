@@ -86,7 +86,7 @@ async def async_get_solutions(args):
                 if not verdict or verdict != 'Accepted': continue
                 ms = td[6].text.strip()
                 mem = td[7].text.strip()
-                print("{} {:9s} {} {:<15s} {:>7s} {:>8s} ".format(level, sid, name, lang, ms, mem), end='')
+                print("{:9s} {} {:<15s} {:<20s} {:>7s} {:>8s} ".format(sid, name, prob_title, lang, ms, mem), end='')
                 choice = input("View? [Ynq] ").lower()
                 if choice in ["yes", 'y', '']:
                     r = await async_view_submission(sid, lang, str(cid)+level.lower())
@@ -194,31 +194,33 @@ def open_url(args):
 def count_contests(contests):
     return len(contests.xpath('.//tr[@data-contestid]'))
 
-def parse_list(raw_contests, upcoming=0, write_db=True):
+def parse_contest_list(raw_contests, upcoming=0, write_db=True):
     cur = db.cursor()
-#    last_contest = cur.execute('''SELECT cid, start FROM codeforces WHERE upcoming = 0 ORDER BY start DESC;''').fetchone()
     contests = {}
-#    page_overlapped = False
     for c in raw_contests.xpath('.//tr[@data-contestid]'):
         cid = int(c.get('data-contestid'))
-#        if last_contest and last_contest[0] == cid: page_overlapped = True
         td = c.xpath('.//td')
         title = td[0].text.lstrip().splitlines()[0]
         authors = [{'class':a.get('class').split(' ')[1],'profile':a.get('href'),'title':a.get('title'),'name':a.text} for a in td[1].xpath('.//a')]
         start = td[2].xpath('.//span')[0].text
         start = datetime.strptime(start, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk)
         length = td[3].text.strip()
+        participants = ''
+        registration = 0
 
         if upcoming:
-            participants = 0
+            msg = td[5].text_content().strip()
+            if msg.startswith("Registration completed"):
+                registration = 1
+            participants = msg.split('x')[-1]
         else:
-            participants = ''.join(td[5].itertext()).strip().lstrip('x')
+            participants = td[5].text_content().strip().lstrip('x')
 
         contests[cid] = {'title':title, 'authors':authors, 'start':start, 'length':length, 'participants':participants, 'upcoming':0}
         if write_db:
-            cur.execute('INSERT or REPLACE INTO codeforces (cid, title, authors, start, length, participants, upcoming) VALUES (?, ?, ?, ?, ?, ?, ?)', (cid, title, json.dumps(authors), start, length, participants, upcoming))
+            cur.execute('INSERT or REPLACE INTO codeforces (cid, title, authors, start, length, participants, registration, upcoming) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    (cid, title, json.dumps(authors), start, length, participants, registration, upcoming))
     if write_db: db.commit()
-#    return page_overlapped
 
 def parse_div(title):
     r = []
@@ -282,9 +284,11 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
                 countdown = '       END'
             participants = ''
             weekday = start.strftime(' %a')
+            registration = ' ' + GREEN('Registration completed') if c[6] else ''
         else:
             participants = ('x'+str(c[5])).rjust(7, ' ')
             weekday = ''
+            registration = ''
 
         if solved_json and str(cid) in solved_json['solvedProblemCountsByContestId'] and str(cid) in solved_json['problemCountsByContestId']:
             solved_cnt = solved_json['solvedProblemCountsByContestId'][str(cid)]
@@ -303,7 +307,9 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
 
         if not show_all and conf['only_goals'] and (len(div) == 0 or conf['contest_goals'][div[-1]] == 0):
             puts = lambda msg: None
-        contest_info = "{:04d} {:<3} {}{:<{width}} {} ({}){}{}{}".format(cid, div, solved_str, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"), length, weekday, countdown, participants, width=conf['title_width'])
+        contest_info = "{:04d} {:<3} {}{:<{width}} {} ({}){}{}{}{}".format(
+            cid, div, solved_str, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"),
+            length, weekday, countdown, participants, registration, width=conf['title_width'])
         puts(contest_info)
     if not upcoming:
         print("[+] Solved {:d}/{:d} contests".format(solved_contests, total_contests))
@@ -352,20 +358,20 @@ async def async_list_contest(args, upcoming=False):
         for page in pages:
             doc = html.fromstring(page)
             table = doc.xpath('.//div[@class="datatable"]')
-            parse_list(table[0], upcoming=1, write_db=True)
+            parse_contest_list(table[0], upcoming=1, write_db=True)
             if count_contests(table[1]) == 0:
                 print("[!] Contest is running or countdown")
                 break
-            parse_list(table[1], write_db=True)
+            parse_contest_list(table[1], write_db=True)
     await _http.close_session()
 
     if upcoming:
         print("[+] Current or upcoming contests")
-        upcoming = cur.execute('''SELECT cid, title, authors, start, length, participants FROM codeforces WHERE upcoming = 1 ORDER BY start;''')
+        upcoming = cur.execute('''SELECT cid, title, authors, start, length, participants, registration FROM codeforces WHERE upcoming = 1 ORDER BY start;''')
         show_contests(upcoming, show_all=args.all, upcoming=True)
     else:
         print("[+] Past contests")
-        contests = cur.execute('''SELECT cid, title, authors, start, length, participants FROM codeforces WHERE upcoming = 0 ORDER BY start;''')
+        contests = cur.execute('''SELECT cid, title, authors, start, length, participants, registration FROM codeforces WHERE upcoming = 0 ORDER BY start;''')
         show_contests(contests, show_all=args.all, solved_json=solved_json)
 
 def list_past_contest(args):

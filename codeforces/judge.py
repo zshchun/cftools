@@ -31,8 +31,8 @@ def test(args):
         filename = args.input
     else:
         filename = problem.select_source_code(cid, level)
-    if not path.isfile(filename):
-        print("[!] File not found : {}".format(filename))
+    if not filename or not path.isfile(filename):
+        print("[!] File not found")
         return
     run_path = path.splitext(filename)[0]
     input_files = problem.find_input_files(prob_dir)
