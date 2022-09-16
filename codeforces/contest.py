@@ -335,7 +335,14 @@ async def async_list_contest(args, upcoming=False):
     else:
         contests = cur.execute('''SELECT start, length FROM codeforces WHERE upcoming = 1 ORDER BY start;''')
         for start, length in contests:
-            duration = timedelta(hours=int(length.split(':')[0])+1, minutes=int(length.split(':')[1]))
+            s = length.split(':')
+            if len(s) == 3:
+                days = int(s[0])
+            else:
+                days = 0
+            hours = int(s[-2])+1
+            minues = int(s[-1])
+            duration = timedelta(days=days, hours=hours, minutes=minues)
             contest_end = (datetime.strptime(start, '%Y-%m-%d %H:%M:%S%z').astimezone(tz=None) + duration)
             now = datetime.now().astimezone(tz=None)
             if contest_end < now:
