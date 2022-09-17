@@ -26,7 +26,7 @@ async def async_submit(args):
         print("[!] File not found : {}".format(filename))
         return
 
-    print("[+] Submit {}{} : {}".format(cid, level.upper(), filename))
+    print("[+] Submit {} {} : {}".format(cid, level.upper(), filename))
     epoch = int(time() * 1000)
     await _http.open_session()
     token = _http.get_tokens()
@@ -54,7 +54,7 @@ async def async_submit(args):
         status = parse_submit_status(resp)
         assert status[0]['url'].split('/')[-1] == level.upper()
         submit_id = status[0]['id']
-        done, pending = await asyncio.wait([task], timeout=5)
+        done, pending = await asyncio.wait([task], timeout=5, return_when=asyncio.FIRST_COMPLETED)
         if task in done:
             accepted = done.pop().result()
             if accepted:

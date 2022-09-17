@@ -268,18 +268,25 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
         length = c[4]
         countdown = ''
         if upcoming:
-            length_secs = int(length.split(':')[0])*3600 + int(length.split(':')[1])*60
+            days, hours, minutes = parse_hhmm_format(length)
+            length_secs = days * 86400 + hours * 3600 + minutes * 60
             if start > datetime.now().astimezone(tz=None):
                 d = start - datetime.now().astimezone(tz=None)
                 h = d.seconds // 3600
                 m = d.seconds // 60 % 60
-                countdown = ' {:02}d+{:02d}:{:02d}'.format(d.days, h, m)
+                if d.days > 0:
+                    countdown = '  {:3}:{:02d}:{:02d}'.format(d.days, h, m)
+                else:
+                    countdown = '      {:2d}:{:02d}'.format(h, m)
             elif (datetime.now().astimezone(tz=None)-start).seconds < length_secs:
                 d = start - datetime.now().astimezone(tz=None)
                 t = d.seconds + length_secs
                 h = t // 3600
                 m = t // 60 % 60
-                countdown = '    -{:02d}:{:02d}'.format(h, m)
+                if h >= 24:
+                    countdown = ' {:4d}:{:02d}:{:02d}'.format(-(h//24), h%24, m)
+                else:
+                    countdown = '     {:3d}:{:02d}'.format(-h, m)
             else:
                 countdown = '       END'
             participants = ''
@@ -317,7 +324,7 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
 def list_contest(args, upcoming=False):
     asyncio.run(async_list_contest(args, upcoming))
 
-def get_contest_duration(length):
+def parse_hhmm_format(length):
     s = length.split(':')
     if len(s) == 3:
         days = int(s[0])
@@ -325,6 +332,10 @@ def get_contest_duration(length):
         days = 0
     hours = int(s[-2])
     minues = int(s[-1])
+    return days, hours, minues
+
+def get_contest_duration(length):
+    days, hours, minues = parse_hhmm_format(length)
     return timedelta(days=days, hours=hours, minutes=minues)
 
 def get_contest_start(start):
@@ -332,12 +343,14 @@ def get_contest_start(start):
 
 def is_contest_running(cid):
     cur = db.cursor()
-    start, length = cur.execute(f'''SELECT start, length FROM codeforces WHERE upcoming = 1 WEHRE cid = {cid};''').fetchone()
-    if not contest:
+    result = cur.execute(f'''SELECT start, length FROM codeforces WHERE upcoming = 1 AND cid = {cid};''').fetchone()
+    if not result:
         return False
+    start = result[0]
+    length = result[1]
     now = datetime.now().astimezone(tz=None)
     contest_start = get_contest_start(start)
-    contest_end = contest_start + contest_duration(length)
+    contest_end = contest_start + get_contest_duration(length)
     if now >= contest_start and now < contest_end:
         return True
     return False
@@ -361,7 +374,7 @@ async def async_list_contest(args, upcoming=False):
         contests = cur.execute('''SELECT start, length FROM codeforces WHERE upcoming = 1 ORDER BY start;''')
         for start, length in contests:
             contest_start = get_contest_start(start)
-            contest_end = contest_start + contest_duration(length) + timedelta(hours=1)
+            contest_end = contest_start + get_contest_duration(length) + timedelta(hours=1)
             now = datetime.now().astimezone(tz=None)
             if contest_end < now:
                 update = True
@@ -468,5 +481,8 @@ async def async_register(args):
         resp = await _http.async_post(url, form)
         msg = util.show_message(resp)
         if msg: print('[+]', msg)
+        doc = html.fromstring(resp)
+        table = doc.xpath('.//div[@class="datatable"]')
+        parse_contest_list(table[0], upcoming=1, write_db=True)
     finally:
         await _http.close_session()
