@@ -317,6 +317,31 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
 def list_contest(args, upcoming=False):
     asyncio.run(async_list_contest(args, upcoming))
 
+def get_contest_duration(length):
+    s = length.split(':')
+    if len(s) == 3:
+        days = int(s[0])
+    else:
+        days = 0
+    hours = int(s[-2])
+    minues = int(s[-1])
+    return timedelta(days=days, hours=hours, minutes=minues)
+
+def get_contest_start(start):
+    return datetime.strptime(start, '%Y-%m-%d %H:%M:%S%z').astimezone(tz=None)
+
+def is_contest_running(cid):
+    cur = db.cursor()
+    start, length = cur.execute(f'''SELECT start, length FROM codeforces WHERE upcoming = 1 WEHRE cid = {cid};''').fetchone()
+    if not contest:
+        return False
+    now = datetime.now().astimezone(tz=None)
+    contest_start = get_contest_start(start)
+    contest_end = contest_start + contest_duration(length)
+    if now >= contest_start and now < contest_end:
+        return True
+    return False
+
 async def async_list_contest(args, upcoming=False):
     solved_json = None
     cur = db.cursor()
@@ -335,15 +360,8 @@ async def async_list_contest(args, upcoming=False):
     else:
         contests = cur.execute('''SELECT start, length FROM codeforces WHERE upcoming = 1 ORDER BY start;''')
         for start, length in contests:
-            s = length.split(':')
-            if len(s) == 3:
-                days = int(s[0])
-            else:
-                days = 0
-            hours = int(s[-2])+1
-            minues = int(s[-1])
-            duration = timedelta(days=days, hours=hours, minutes=minues)
-            contest_end = (datetime.strptime(start, '%Y-%m-%d %H:%M:%S%z').astimezone(tz=None) + duration)
+            contest_start = get_contest_start(start)
+            contest_end = contest_start + contest_duration(length) + timedelta(hours=1)
             now = datetime.now().astimezone(tz=None)
             if contest_end < now:
                 update = True

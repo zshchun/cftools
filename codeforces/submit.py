@@ -58,6 +58,8 @@ async def async_submit(args):
         if task in done:
             accepted = done.pop().result()
             if accepted:
+                if not contest.is_contest_running(cid):
+                    await asyncio.sleep(2)
                 await contest.async_get_solved_count()
         else:
             task.cancel()
@@ -73,6 +75,8 @@ async def async_submit(args):
                 elif status['verdict'].startswith('Accepted'):
                     print(GREEN("[+] [{}] {}".format(status['id'], status['verdict'])))
                     print(GREEN("[+] {} ms, {} KB".format(status['time'], status['mem'])))
+                    if not contest.is_contest_running(cid):
+                        await asyncio.sleep(2)
                     await contest.async_get_solved_count()
                     break
                 else:
