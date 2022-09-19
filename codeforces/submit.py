@@ -63,6 +63,7 @@ async def async_submit(args):
                 await contest.async_get_solved_count()
         else:
             task.cancel()
+            print("Waiting...")
             while True:
                 status_url = '/contest/{}/my'.format(cid, token['csrf'])
                 resp = await _http.async_get(status_url)
@@ -72,7 +73,7 @@ async def async_submit(args):
                     print(RED("[+] [{}] {}".format(status['id'], status['verdict'])))
                     print(RED("[+] {} ms, {} KB".format(status['time'], status['mem'])))
                     break
-                elif status['verdict'].startswith('Accepted'):
+                elif status['verdict'].startswith('Accepted') or status['verdict'].startswith('Pretests passed'):
                     print(GREEN("[+] [{}] {}".format(status['id'], status['verdict'])))
                     print(GREEN("[+] {} ms, {} KB".format(status['time'], status['mem'])))
                     if not contest.is_contest_running(cid):
@@ -80,7 +81,7 @@ async def async_submit(args):
                     await contest.async_get_solved_count()
                     break
                 else:
-                    print("Status:", status['verdict'])
+                    redraw("Status:", status['verdict'])
                 await asyncio.sleep(2)
     finally:
         await _http.close_session()
