@@ -232,7 +232,7 @@ def parse_div(title):
         r += ['G']
     return r
 
-def solved_problems():
+def get_solved_files():
     ret = {}
     for fn in listdir(path.expanduser(conf['solved_dir'])):
         t = path.splitext(fn)
@@ -319,7 +319,8 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
             length, weekday, countdown, participants, registration, width=conf['title_width'])
         puts(contest_info)
     if not upcoming:
-        print("[+] Solved {:d}/{:d} contests".format(solved_contests, total_contests))
+        solved_problems = sum([v for k, v in solved_json['solvedProblemCountsByContestId'].items() if int(k) < 10000])
+        print("[+] Solved {:d} contests, {:d} problems".format(solved_contests, solved_problems))
 
 def list_contest(args, upcoming=False):
     asyncio.run(async_list_contest(args, upcoming))
