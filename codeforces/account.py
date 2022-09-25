@@ -5,6 +5,14 @@ from getpass import getpass
 from lxml import html, etree
 import asyncio
 
+def is_user_logged_in(html_data):
+    doc = html.fromstring(html_data)
+    links = doc.xpath('.//div[@class="lang-chooser"]/div[not(@style)]/a[@href]')
+    for m in links:
+        if m.text.strip() in ["Register", "Enter"]:
+            return False
+    return True
+
 def check_login(html_data):
     doc = html.fromstring(html_data)
     captions = doc.xpath('.//div[@class="caption titled"]')

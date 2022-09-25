@@ -2,6 +2,7 @@ from . import _http
 from . import config
 from . import problem
 from . import contest
+from . import account
 from .ui import *
 from .util import *
 from time import time
@@ -45,6 +46,9 @@ async def async_submit(args):
         form = _http.add_form_data(submit_form)
         form.add_field('sourceFile', open(filename, 'rb'), filename=filename)
         resp = await _http.async_post(url, form)
+        if not account.is_user_logged_in(resp):
+            print("Login required")
+            return
         doc = html.fromstring(resp)
         for e in doc.xpath('.//span[@class="error for__sourceFile"]'):
             if e.text == 'You have submitted exactly the same code before':
@@ -81,7 +85,7 @@ async def async_submit(args):
                     await contest.async_get_solved_count()
                     break
                 else:
-                    redraw("Status:", status['verdict'])
+                    redraw("Status:", status['verdict'].strip())
                 await asyncio.sleep(2)
     finally:
         await _http.close_session()
