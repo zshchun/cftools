@@ -116,7 +116,8 @@ async def async_get_contest_materials(args):
                 continue
             links = c.getparent().xpath('.//a[@href]')
             for a in links:
-                print("[+] {}\n{}{}".format(a.get('title'), CF_HOST, a.get('href')))
+                title_text = html.fromstring(a.get('title')).text_content()
+                print("[+] {}\n{}{}".format(title_text, CF_HOST, a.get('href')))
     finally:
         await _http.close_session()
 
