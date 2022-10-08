@@ -28,7 +28,7 @@ DEFAULT_CONFIG = {
         '2': 5,
         '3': 9,
         '4': 9,
-        'G': 5,
+        'C': 5,
         }
     }
 PROG_TYPE_ID = {

@@ -228,8 +228,8 @@ def parse_div(title):
         r += ['D']
         for i in range(1, 5):
             if re.compile('Div\. ?' + str(i)).search(title): r += [str(i)]
-    elif 'Global' in title:
-        r += ['G']
+    elif not 'unrated' in title.lower():
+        r += ['C']
     return r
 
 def get_solved_files():
@@ -267,8 +267,8 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
         start = datetime.strptime(c[3], '%Y-%m-%d %H:%M:%S%z').astimezone(tz=None)
         length = c[4]
         countdown = ''
+        days, hours, minutes = parse_hhmm_format(length)
         if upcoming:
-            days, hours, minutes = parse_hhmm_format(length)
             length_secs = days * 86400 + hours * 3600 + minutes * 60
             if start > datetime.now().astimezone(tz=None):
                 d = start - datetime.now().astimezone(tz=None)
@@ -312,7 +312,7 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
         else:
             solved_str = ""
 
-        if not show_all and conf['only_goals'] and (len(div) == 0 or conf['contest_goals'][div[-1]] == 0):
+        if not show_all and conf['only_goals'] and (days > 0 or len(div) == 0 or conf['contest_goals'][div[-1]] == 0):
             puts = lambda msg: None
         contest_info = "{:04d} {:<3} {}{:<{width}} {} ({}){}{}{}{}".format(
             cid, div, solved_str, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"),
