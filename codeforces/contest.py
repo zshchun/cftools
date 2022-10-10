@@ -266,21 +266,28 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
         title = c[1]
         div = ''.join(parse_div(title))
         start = datetime.strptime(c[3], '%Y-%m-%d %H:%M:%S%z').astimezone(tz=None)
+        now = datetime.now().astimezone(tz=None)
         length = c[4]
         countdown = ''
         days, hours, minutes = parse_hhmm_format(length)
         if upcoming:
             length_secs = days * 86400 + hours * 3600 + minutes * 60
-            if start > datetime.now().astimezone(tz=None):
-                d = start - datetime.now().astimezone(tz=None)
+            if start > now:
+                d = start - now
                 h = d.seconds // 3600
                 m = d.seconds // 60 % 60
                 if d.days > 0:
                     countdown = '  {:3}:{:02d}:{:02d}'.format(d.days, h, m)
                 else:
                     countdown = '      {:2d}:{:02d}'.format(h, m)
-            elif (datetime.now().astimezone(tz=None)-start).seconds < length_secs:
-                d = start - datetime.now().astimezone(tz=None)
+                secs = d.days * 86400 + d.seconds
+                if secs < 48 * 3600:
+                    if c[6]:
+                        puts = lambda msg: print(GREEN(msg))
+                    else:
+                        puts = lambda msg: print(BRED(msg))
+            elif (now-start).seconds < length_secs:
+                d = start - now
                 t = d.seconds + length_secs
                 h = t // 3600
                 m = t // 60 % 60
@@ -292,11 +299,9 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
                 countdown = '       END'
             participants = ''
             weekday = start.strftime(' %a')
-            registration = ' ' + GREEN('Registration completed') if c[6] else ''
         else:
             participants = ('x'+str(c[5])).rjust(7, ' ')
             weekday = ''
-            registration = ''
 
         if solved_json and str(cid) in solved_json['solvedProblemCountsByContestId'] and str(cid) in solved_json['problemCountsByContestId']:
             solved_cnt = solved_json['solvedProblemCountsByContestId'][str(cid)]
@@ -315,9 +320,9 @@ def show_contests(contests, show_all=False, upcoming=False, solved_json=None):
 
         if not show_all and conf['only_goals'] and (days > 0 or len(div) == 0 or conf['contest_goals'][div[-1]] == 0):
             puts = lambda msg: None
-        contest_info = "{:04d} {:<3} {}{:<{width}} {} ({}){}{}{}{}".format(
+        contest_info = "{:04d} {:<3} {}{:<{width}} {} ({}){}{}{}".format(
             cid, div, solved_str, title[:conf['title_width']], start.strftime("%Y-%m-%d %H:%M"),
-            length, weekday, countdown, participants, registration, width=conf['title_width'])
+            length, weekday, countdown, participants, width=conf['title_width'])
         puts(contest_info)
     if not upcoming:
         solved_problems = sum([v for k, v in solved_json['solvedProblemCountsByContestId'].items() if int(k) < 10000])
