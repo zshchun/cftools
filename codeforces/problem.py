@@ -25,7 +25,7 @@ def prepare_problem_dir(cid, level=None):
     return p
 
 def find_input_files(_dir):
-    ins = [_dir + sep + f for f in listdir(_dir) if path.isfile(f) and path.splitext(f)[-1] == '.txt' and f.startswith('in')]
+    ins = sorted([_dir + sep + f for f in listdir(_dir) if path.isfile(f) and path.splitext(f)[-1] == '.txt' and f.startswith('in')])
     return ins
 
 def select_source_code(cid, level):
