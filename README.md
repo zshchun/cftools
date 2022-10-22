@@ -93,4 +93,5 @@ $ cf open 1698
 - [ ] Generate random testcase
 - [x] Registration
 - [ ] View my solutions
+- [ ] Support m1/m2/m3 server
 - [x] Login

@@ -69,11 +69,16 @@ async def async_get_solutions(args):
                 when = datetime.strptime(td[1].xpath('.//span')[0].text, "%b/%d/%Y %H:%M").replace(tzinfo=config.tz_msk).astimezone(tz=None).strftime('%y-%m-%d %H:%M')
                 a = td[2].xpath('.//a[@href]')[0]
                 user = {}
-                user['profile'] = a.get('href')
-                user['class'] = a.get('class').split(' ')[1]
+                if a.get('class'):
+                    user['profile'] = a.get('href')
+                    user['class'] = a.get('class').split(' ')[1]
+                    c = user['class'].split('-')[1]
+                else:
+                    user['class'] = "" # Team
+                    user['profile'] = ""
+                    c = 'black'
                 user['title'] = a.get('title')
                 user['name'] = ''.join(a.itertext()).strip()
-                c = user['class'].split('-')[1]
                 if c != 'black':
                     name = setcolor(c, user['name'].ljust(20))
                 else:
