@@ -17,7 +17,7 @@ from sys import argv, exit
 from operator import itemgetter
 
 async def async_view_submission(sid, lang, prefix=''):
-    extentions = {'C++':'cpp', 'Clang++':'cpp', 'C11':'c', 'Kotlin':'kt', 'Java':'java', 'Python':'py', 'PyPy':'py'}
+    extentions = {'C++':'cpp', 'Clang++':'cpp', 'C11':'c', 'Kotlin':'kt', 'Java':'java', 'Python':'py', 'PyPy':'py', 'C#':'cs'}
     cache_dir = path.expanduser(conf['cache_dir']) + sep + prefix
     makedirs(cache_dir, exist_ok=True)
     json_path = cache_dir + sep + sid + '.json'
