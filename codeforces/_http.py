@@ -70,8 +70,8 @@ def check_rcpc(html_data):
         cookie_jar.save(file_path=config.cookie_path)
         raise RCPCRedirectionError()
 
-async def async_get(url, headers=None, csrf=False):
-    if headers == None: headers = default_headers
+async def async_get(url, headers={}, csrf=False):
+    headers = { **default_headers, **headers }
     if csrf and 'csrf' in tokens:
         headers = add_header({'X-Csrf-Token': tokens['csrf']})
     if url.startswith('/'): url = CF_HOST + url
@@ -88,8 +88,8 @@ async def async_get(url, headers=None, csrf=False):
             cookie_jar.save(file_path=config.cookie_path)
             return await response.text()
 
-async def async_post(url, data, headers=None, csrf=False):
-    if headers == None: headers = default_headers
+async def async_post(url, data, headers={}, csrf=False):
+    headers = { **default_headers, **headers }
     if csrf and 'csrf' in tokens:
         headers = add_header({'X-Csrf-Token': tokens['csrf']})
     if url.startswith('/'): url = CF_HOST + url

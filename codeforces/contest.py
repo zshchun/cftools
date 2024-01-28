@@ -24,7 +24,7 @@ async def async_view_submission(sid, lang, prefix=''):
     if path.isfile(json_path):
         res = open(json_path, 'r').read()
     else:
-        res = await _http.async_post("/data/submitSource", { 'submissionId':sid })
+        res = await _http.async_post("/submitSource", { 'submissionId':sid })
         open(json_path, 'w').write(res)
     js = json.loads(res)
     lang_ext = ''
@@ -256,6 +256,7 @@ def get_solved_files():
 
 async def async_get_solved_count():
     getsolved_data = { 'action':'getSolvedProblemCountsByContest' }
+#    getsolved_data['contestIdsCommaSeparate'] = ','.join(ids)
     solved_string = await _http.async_post("/data/contests", getsolved_data, csrf=True)
     solved_json = json.loads(solved_string)
     open(config.solved_path, 'w').write(solved_string)
